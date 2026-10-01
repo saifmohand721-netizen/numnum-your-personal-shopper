@@ -5,6 +5,7 @@ import { Check, LogOut, Package, RefreshCw, Search, ShoppingBag, Truck } from "l
 import { Button } from "@/components/ui/button";
 import { getDriverOrders, updateDriverOrder } from "@/lib/orders.functions";
 import type { Tables } from "@/integrations/supabase/types";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/driver")({
   head: () => ({
@@ -50,8 +51,19 @@ function DriverPage() {
 
   useEffect(() => {
     if (!activePin) return;
-    const timer = window.setInterval(() => void refresh(activePin), 4000);
-    return () => window.clearInterval(timer);
+    const channel = supabase
+      .channel("driver-order-alerts")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "order_events" },
+        () => void refresh(activePin),
+      )
+      .subscribe();
+    const fallback = window.setInterval(() => void refresh(activePin), 30000);
+    return () => {
+      window.clearInterval(fallback);
+      void supabase.removeChannel(channel);
+    };
   }, [activePin]);
 
   if (!activePin) return <main dir="rtl" className="grid min-h-screen place-items-center bg-foreground px-4 text-background"><section className="w-full max-w-sm rounded-2xl border border-background/10 bg-foreground p-7 shadow-xl">
@@ -61,7 +73,7 @@ function DriverPage() {
 
   const shown = filter === "all" ? orders : orders.filter((order) => order.status === filter);
   return <main dir="rtl" className="min-h-screen bg-foreground text-background">
-    <header className="border-b border-background/10 px-4 py-4 sm:px-6"><div className="mx-auto grid max-w-7xl grid-cols-[minmax(0,1fr)_auto] items-center gap-4"><div className="flex min-w-0 items-center gap-3"><span className="grid size-11 shrink-0 place-items-center rounded-xl bg-primary text-primary-foreground"><Truck /></span><div className="min-w-0"><h1 className="truncate text-xl font-black">لوحة السائق</h1><p className="truncate text-xs text-background/50">تتحدّث تلقائياً كل بضع ثوانٍ</p></div></div><div className="flex shrink-0"><Button variant="ghost" size="icon" title="تحديث" onClick={() => void refresh()} className="text-background hover:bg-background/10"><RefreshCw /></Button><Button variant="ghost" size="icon" title="خروج" onClick={() => setActivePin("")} className="text-background hover:bg-background/10"><LogOut /></Button></div></div></header>
+    <header className="border-b border-background/10 px-4 py-4 sm:px-6"><div className="mx-auto grid max-w-7xl grid-cols-[minmax(0,1fr)_auto] items-center gap-4"><div className="flex min-w-0 items-center gap-3"><span className="grid size-11 shrink-0 place-items-center rounded-xl bg-primary text-primary-foreground"><Truck /></span><div className="min-w-0"><h1 className="truncate text-xl font-black">لوحة السائق</h1><p className="truncate text-xs text-background/50">تتحدّث فور وصول أي تغيير</p></div></div><div className="flex shrink-0"><Button variant="ghost" size="icon" title="تحديث" onClick={() => void refresh()} className="text-background hover:bg-background/10"><RefreshCw /></Button><Button variant="ghost" size="icon" title="خروج" onClick={() => setActivePin("")} className="text-background hover:bg-background/10"><LogOut /></Button></div></div></header>
     <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4"><Stat icon={<Package />} label="الطلبات النشطة" value={orders.filter((o) => o.status !== "completed").length} /><Stat icon={<ShoppingBag />} label="قيد الشراء" value={orders.filter((o) => o.status === "buying").length} /><Stat icon={<Truck />} label="في الطريق" value={orders.filter((o) => o.status === "delivering").length} /><Stat icon={<Check />} label="مكتملة" value={orders.filter((o) => o.status === "completed").length} /></div>
       <div className="mt-6 flex gap-2 overflow-x-auto pb-2">{filters.map(([id,label]) => <Button key={id} variant={filter === id ? "hero" : "outline"} size="sm" className={filter === id ? "" : "border-background/15 bg-transparent text-background hover:bg-background/10 hover:text-background"} onClick={() => setFilter(id)}>{label}<span className="opacity-60">{id === "all" ? orders.length : orders.filter((o) => o.status === id).length}</span></Button>)}</div>
