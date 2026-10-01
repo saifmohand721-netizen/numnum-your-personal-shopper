@@ -18,6 +18,7 @@ import {
 import appIcon from "@/assets/numnum-app-icon.png";
 import { Button } from "@/components/ui/button";
 import { createOrder, trackOrder } from "@/lib/orders.functions";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -74,11 +75,30 @@ function Index() {
 
   useEffect(() => {
     if (!tracked) return;
-    const timer = window.setInterval(async () => {
-      const latest = await trackOrder({ data: { id: tracked.id, phone: `+964${phone}` } });
-      if (latest) setTracked(latest);
-    }, 5000);
-    return () => window.clearInterval(timer);
+    const orderId = tracked.id;
+    const refresh = async () => {
+      try {
+        const latest = await trackOrder({ data: { id: orderId, phone: `+964${phone}` } });
+        if (latest) setTracked(latest);
+      } catch {
+        /* keep last known state */
+      }
+    };
+    // Realtime: order_events carries only the order id (no personal data);
+    // on each signal we securely refetch this customer's order.
+    const channel = supabase
+      .channel(`order-track-${orderId}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "order_events", filter: `order_id=eq.${orderId}` },
+        () => void refresh(),
+      )
+      .subscribe();
+    const timer = window.setInterval(refresh, 30000);
+    return () => {
+      window.clearInterval(timer);
+      supabase.removeChannel(channel);
+    };
   }, [tracked?.id, phone]);
 
   function resizeItems() {
