@@ -14,6 +14,24 @@ export type Database = {
   }
   public: {
     Tables: {
+      order_events: {
+        Row: {
+          created_at: string
+          id: string
+          order_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          order_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          order_id?: string
+        }
+        Relationships: []
+      }
       orders: {
         Row: {
           budget_limit: number | null

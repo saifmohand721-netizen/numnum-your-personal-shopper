@@ -8,6 +8,14 @@ const trackingInput = z.object({
 
 const driverInput = z.object({ pin: z.string().min(4).max(64) });
 
+const createOrderInput = z.object({
+  phone: z.string().regex(/^\+964\d{9,10}$/),
+  storeType: z.string().min(2).max(80),
+  itemsList: z.string().min(2).max(5000),
+  deliveryAddress: z.string().min(3).max(500),
+  budgetLimit: z.number().min(0).nullable(),
+});
+
 async function getAdmin() {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   return supabaseAdmin;
@@ -17,6 +25,25 @@ function verifyPin(pin: string) {
   const expectedPin = process.env["DRIVER_PIN"]!;
   if (pin !== expectedPin) throw new Response("Unauthorized", { status: 401 });
 }
+
+export const createOrder = createServerFn({ method: "POST" })
+  .inputValidator((value) => createOrderInput.parse(value))
+  .handler(async ({ data }) => {
+    const admin = await getAdmin();
+    const { data: order, error } = await admin
+      .from("orders")
+      .insert({
+        customer_phone: data.phone,
+        store_type: data.storeType,
+        items_list: data.itemsList,
+        delivery_address: data.deliveryAddress,
+        budget_limit: data.budgetLimit,
+      })
+      .select("id,status,store_type,items_list,purchase_price,delivery_fee,total_price,created_at")
+      .single();
+    if (error) throw new Error(error.message);
+    return order;
+  });
 
 export const trackOrder = createServerFn({ method: "GET" })
   .inputValidator((value) => trackingInput.parse(value))
