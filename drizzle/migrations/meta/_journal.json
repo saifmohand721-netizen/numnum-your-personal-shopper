@@ -8,6 +8,13 @@
       "when": 1790821498157,
       "tag": "0000_create_numnum_orders",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1790821566153,
+      "tag": "0001_secure_numnum_orders",
+      "breakpoints": true
     }
   ]
 }
