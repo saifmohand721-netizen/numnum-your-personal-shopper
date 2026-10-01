@@ -61,7 +61,7 @@ function Index() {
   const [error, setError] = useState("");
   const [tracked, setTracked] = useState<TrackedOrder>(null);
   const [dismissInstall, setDismissInstall] = useState(false);
-  const deferredInstall = useRef<Event & { prompt: () => Promise<void> }>();
+  const deferredInstall = useRef<(Event & { prompt: () => Promise<void> }) | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
