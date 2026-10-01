@@ -17,8 +17,7 @@ import {
 
 import appIcon from "@/assets/numnum-app-icon.png";
 import { Button } from "@/components/ui/button";
-import { supabase } from "@/integrations/supabase/client";
-import { trackOrder } from "@/lib/orders.functions";
+import { createOrder, trackOrder } from "@/lib/orders.functions";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -97,23 +96,20 @@ function Index() {
       return;
     }
     setSending(true);
-    const { data, error: insertError } = await supabase
-      .from("orders")
-      .insert({
-        customer_phone: `+964${phone.replace(/\D/g, "").replace(/^0/, "")}`,
-        store_type: categories.find((item) => item.id === category)?.name ?? category,
-        items_list: items.trim(),
-        delivery_address: address.trim(),
-        budget_limit: budget ? Number(budget.replace(/\D/g, "")) : null,
-      })
-      .select("id,status,store_type,items_list,purchase_price,delivery_fee,total_price,created_at")
-      .single();
-    setSending(false);
-    if (insertError || !data) {
+    try {
+      const data = await createOrder({ data: {
+        phone: `+964${phone.replace(/\D/g, "").replace(/^0/, "")}`,
+        storeType: categories.find((item) => item.id === category)?.name ?? category,
+        itemsList: items.trim(),
+        deliveryAddress: address.trim(),
+        budgetLimit: budget ? Number(budget.replace(/\D/g, "")) : null,
+      } });
+      setTracked(data);
+    } catch {
       setError("تعذّر إرسال الطلب الآن. جرّب مرة ثانية بعد لحظات.");
-      return;
+    } finally {
+      setSending(false);
     }
-    setTracked(data);
   }
 
   if (tracked) {
