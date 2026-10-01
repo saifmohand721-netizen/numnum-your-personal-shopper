@@ -8,3 +8,6 @@
 > Commits you push to the connected branch sync back to Lovable and show up in
 > the editor, so keep the branch in a working state.
 <!-- LOVABLE:END -->
+
+- NumNum uses Lovable Cloud for order persistence and server-verified customer/driver access, preventing public order exposure.
+- Offline support uses vite-plugin-pwa with a preview-safe registration wrapper and network-first navigation.
