@@ -15,6 +15,13 @@
       "when": 1790821566153,
       "tag": "0001_secure_numnum_orders",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1790821828909,
+      "tag": "0002_lock_public_order_inserts",
+      "breakpoints": true
     }
   ]
 }
