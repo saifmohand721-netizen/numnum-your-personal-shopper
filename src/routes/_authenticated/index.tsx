@@ -1,10 +1,11 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import {
   ArrowLeft,
   Check,
   ChevronLeft,
   Hammer,
+  LogOut,
   MapPin,
   Mic,
   Package,
@@ -17,7 +18,7 @@ import {
 
 import appIcon from "@/assets/numnum-app-icon.png";
 import { Button } from "@/components/ui/button";
-import { createOrder, trackOrder } from "@/lib/orders.functions";
+import { createOrder, listMyOrders, trackOrder } from "@/lib/orders.functions";
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/_authenticated/")({
@@ -60,6 +61,7 @@ function Index() {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
   const [tracked, setTracked] = useState<TrackedOrder>(null);
+  const [myOrders, setMyOrders] = useState<NonNullable<TrackedOrder>[]>([]);
   const [dismissInstall, setDismissInstall] = useState(false);
   const deferredInstall = useRef<(Event & { prompt: () => Promise<void> }) | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -74,23 +76,26 @@ function Index() {
   }, []);
 
   useEffect(() => {
+    void listMyOrders().then(setMyOrders).catch(() => {});
+  }, [tracked?.id, tracked?.status]);
+
+  useEffect(() => {
     if (!tracked) return;
     const orderId = tracked.id;
     const refresh = async () => {
       try {
-        const latest = await trackOrder({ data: { id: orderId, phone: `+964${phone}` } });
+        const latest = await trackOrder({ data: { id: orderId } });
         if (latest) setTracked(latest);
       } catch {
         /* keep last known state */
       }
     };
-    // Realtime: order_events carries only the order id (no personal data);
-    // on each signal we securely refetch this customer's order.
+    // Realtime limited to this single order; RLS only delivers rows the signed-in owner can read.
     const channel = supabase
       .channel(`order-track-${orderId}`)
       .on(
         "postgres_changes",
-        { event: "INSERT", schema: "public", table: "order_events", filter: `order_id=eq.${orderId}` },
+        { event: "UPDATE", schema: "public", table: "orders", filter: `id=eq.${orderId}` },
         () => void refresh(),
       )
       .subscribe();
@@ -99,7 +104,7 @@ function Index() {
       window.clearInterval(timer);
       supabase.removeChannel(channel);
     };
-  }, [tracked?.id, phone]);
+  }, [tracked?.id]);
 
   function resizeItems() {
     const textarea = textareaRef.current;
@@ -225,15 +230,35 @@ function Index() {
             </div>}
           </form>
         </section>
+
+        {myOrders.length > 0 && <section aria-labelledby="my-orders" className="border-t border-border py-12">
+          <p className="text-sm font-bold text-primary">حسابك</p>
+          <h2 id="my-orders" className="mt-1 text-2xl font-black">طلباتي</h2>
+          <div className="mt-5 grid gap-3 sm:grid-cols-2">
+            {myOrders.map((order) => {
+              const label = progress.find(([s]) => s === order.status)?.[1] ?? order.status;
+              return <button key={order.id} type="button" onClick={() => setTracked(order)} className="rounded-2xl border border-border bg-card p-4 text-right shadow-sm transition hover:-translate-y-0.5 hover:shadow-xl">
+                <div className="flex items-center justify-between gap-3"><span className="font-extrabold">{order.store_type}</span><span className="rounded-full bg-success/10 px-3 py-1 text-xs font-bold text-success">{label}</span></div>
+                <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">{order.items_list}</p>
+                <p className="mt-3 text-xs text-muted-foreground">#{order.id.slice(0, 8).toUpperCase()} · {new Date(order.created_at).toLocaleDateString("ar-IQ")}</p>
+              </button>;
+            })}
+          </div>
+        </section>}
       </div>
     </main>
   );
 }
 
 function BrandHeader() {
+  const navigate = useNavigate();
+  async function signOut() {
+    await supabase.auth.signOut();
+    navigate({ to: "/auth", replace: true });
+  }
   return <header className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 py-4 sm:flex sm:justify-between">
     <Link to="/" className="flex min-w-0 items-center gap-3"><img src={appIcon} alt="" width={48} height={48} className="size-12 shrink-0 rounded-xl shadow-sm" /><div className="min-w-0"><p className="truncate text-2xl font-black text-primary">نم نم</p><p className="truncate text-xs font-medium text-muted-foreground">نشتري ونوصل لك أي شيء</p></div></Link>
-    <div className="flex shrink-0 items-center gap-2"><span className="hidden items-center gap-2 rounded-full border border-border bg-card px-3 py-2 text-xs font-bold shadow-sm sm:flex"><MapPin className="size-4 text-primary" />توصيل إلى: منطقتك الحالية</span><Button variant="ghost" size="sm" asChild><Link to="/driver"><Package />السائق</Link></Button></div>
+    <div className="flex shrink-0 items-center gap-2"><span className="hidden items-center gap-2 rounded-full border border-border bg-card px-3 py-2 text-xs font-bold shadow-sm sm:flex"><MapPin className="size-4 text-primary" />توصيل إلى: منطقتك الحالية</span><Button variant="ghost" size="sm" asChild><Link to="/driver"><Package />السائق</Link></Button><Button variant="ghost" size="icon" aria-label="تسجيل الخروج" title="تسجيل الخروج" onClick={() => void signOut()}><LogOut /></Button></div>
   </header>;
 }
 
