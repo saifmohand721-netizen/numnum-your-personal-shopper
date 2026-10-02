@@ -45,6 +45,7 @@ export type Database = {
           status: string
           store_type: string
           total_price: number | null
+          user_id: string | null
         }
         Insert: {
           budget_limit?: number | null
@@ -58,6 +59,7 @@ export type Database = {
           status?: string
           store_type: string
           total_price?: number | null
+          user_id?: string | null
         }
         Update: {
           budget_limit?: number | null
@@ -71,6 +73,7 @@ export type Database = {
           status?: string
           store_type?: string
           total_price?: number | null
+          user_id?: string | null
         }
         Relationships: []
       }
