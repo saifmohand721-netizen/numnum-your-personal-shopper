@@ -20,7 +20,7 @@ import { Button } from "@/components/ui/button";
 import { createOrder, trackOrder } from "@/lib/orders.functions";
 import { supabase } from "@/integrations/supabase/client";
 
-export const Route = createFileRoute("/")({
+export const Route = createFileRoute("/_authenticated/")({
   head: () => ({
     meta: [
       { title: "نم نم — نشتري ونوصل لك أي شيء" },

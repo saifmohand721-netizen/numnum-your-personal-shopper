@@ -1,10 +1,10 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
-const trackingInput = z.object({
-  id: z.string().uuid(),
-  phone: z.string().min(8).max(20),
-});
+const CUSTOMER_COLUMNS = "id,status,store_type,items_list,purchase_price,delivery_fee,total_price,created_at";
+
+const trackingInput = z.object({ id: z.string().uuid() });
 
 const driverInput = z.object({ pin: z.string().min(4).max(64) });
 
@@ -26,37 +26,53 @@ function verifyPin(pin: string) {
   if (pin !== expectedPin) throw new Response("Unauthorized", { status: 401 });
 }
 
+// Owner is always taken from the verified session, never from request data.
 export const createOrder = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((value) => createOrderInput.parse(value))
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
     const admin = await getAdmin();
     const { data: order, error } = await admin
       .from("orders")
       .insert({
+        user_id: context.userId,
         customer_phone: data.phone,
         store_type: data.storeType,
         items_list: data.itemsList,
         delivery_address: data.deliveryAddress,
         budget_limit: data.budgetLimit,
       })
-      .select("id,status,store_type,items_list,purchase_price,delivery_fee,total_price,created_at")
+      .select(CUSTOMER_COLUMNS)
       .single();
     if (error) throw new Error(error.message);
     return order;
   });
 
+// RLS (auth.uid() = user_id) guarantees customers only ever see their own orders.
 export const trackOrder = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((value) => trackingInput.parse(value))
-  .handler(async ({ data }) => {
-    const admin = await getAdmin();
-    const { data: order, error } = await admin
+  .handler(async ({ data, context }) => {
+    const { data: order, error } = await context.supabase
       .from("orders")
-      .select("id,status,store_type,items_list,purchase_price,delivery_fee,total_price,created_at")
+      .select(CUSTOMER_COLUMNS)
       .eq("id", data.id)
-      .eq("customer_phone", data.phone)
       .maybeSingle();
     if (error) throw new Error(error.message);
     return order;
+  });
+
+export const listMyOrders = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { data: orders, error } = await context.supabase
+      .from("orders")
+      .select(CUSTOMER_COLUMNS)
+      .eq("user_id", context.userId)
+      .order("created_at", { ascending: false })
+      .limit(50);
+    if (error) throw new Error(error.message);
+    return orders;
   });
 
 export const getDriverOrders = createServerFn({ method: "GET" })
