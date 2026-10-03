@@ -32,7 +32,7 @@ export const Route = createFileRoute("/_authenticated/")({
     ],
   }),
   validateSearch: (search: Record<string, unknown>): { tab?: "home" | "orders" } =>
-    search.tab === "orders" ? { tab: "orders" } : {},
+    search["tab"] === "orders" ? { tab: "orders" } : {},
   component: Index,
 });
 
@@ -144,6 +144,7 @@ function Index() {
 
   const current = tracked ? Math.max(0, progress.findIndex(([status]) => status === tracked.status)) : 0;
   const activeOrders = myOrders.filter((o) => o.status !== "completed");
+  const activeOrder = activeOrders[0] ?? null;
   const pastOrders = myOrders.filter((o) => o.status === "completed");
   const selected = categories.find((c) => c.id === category)!;
 
@@ -191,9 +192,9 @@ function Index() {
             </div>
           </section>
 
-          {activeOrders[0] && <button type="button" onClick={() => setTracked(activeOrders[0])} className="flex w-full items-center gap-3 rounded-2xl border border-success/30 bg-success/10 p-4 text-right">
+          {activeOrder && <button type="button" onClick={() => setTracked(activeOrder)} className="flex w-full items-center gap-3 rounded-2xl border border-success/30 bg-success/10 p-4 text-right">
             <span className="grid size-10 shrink-0 place-items-center rounded-full bg-success text-success-foreground"><Package className="size-5" /></span>
-            <span className="min-w-0 flex-1"><span className="block text-xs font-bold text-success">طلب نشط</span><span className="block truncate font-extrabold">{progress.find(([s]) => s === activeOrders[0].status)?.[1]}</span></span>
+            <span className="min-w-0 flex-1"><span className="block text-xs font-bold text-success">طلب نشط</span><span className="block truncate font-extrabold">{progress.find(([s]) => s === activeOrder.status)?.[1]}</span></span>
             <ChevronLeft className="shrink-0 text-success" />
           </button>}
         </div> : <div className="animate-float-in space-y-6 pt-2">
