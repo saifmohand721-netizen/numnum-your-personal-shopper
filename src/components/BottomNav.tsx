@@ -13,7 +13,7 @@ export function BottomNav({ active, onSelect, dark }: { active: Tab; onSelect?: 
         <Icon className="size-5" />{label}
       </button>
     ) : (
-      <Link to="/" search={{ tab } as never} className={`${base} ${active === tab ? on : off}`}>
+      <Link to="/" search={{ tab }} className={`${base} ${active === tab ? on : off}`}>
         <Icon className="size-5" />{label}
       </Link>
     );

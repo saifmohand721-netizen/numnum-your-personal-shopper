@@ -9,15 +9,14 @@ import {
   MapPin,
   Mic,
   Package,
-  Phone,
   Pill,
   ShoppingBasket,
-  Sparkles,
   X,
 } from "lucide-react";
 
 import appIcon from "@/assets/numnum-app-icon.png";
 import { Button } from "@/components/ui/button";
+import { BottomNav } from "@/components/BottomNav";
 import { createOrder, listMyOrders, trackOrder } from "@/lib/orders.functions";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -32,6 +31,8 @@ export const Route = createFileRoute("/_authenticated/")({
       { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
+  validateSearch: (search: Record<string, unknown>): { tab?: "home" | "orders" } =>
+    search.tab === "orders" ? { tab: "orders" } : {},
   component: Index,
 });
 
@@ -52,6 +53,9 @@ const progress = [
 type TrackedOrder = Awaited<ReturnType<typeof trackOrder>>;
 
 function Index() {
+  const tab = Route.useSearch().tab ?? "home";
+  const navigate = useNavigate();
+  const [sheetOpen, setSheetOpen] = useState(false);
   const [step, setStep] = useState(1);
   const [category, setCategory] = useState("grocery");
   const [items, setItems] = useState("");
@@ -129,6 +133,7 @@ function Index() {
         deliveryAddress: address.trim(),
         budgetLimit: budget ? Number(budget.replace(/\D/g, "")) : null,
       } });
+      setSheetOpen(false); setItems(""); setStep(1);
       setTracked(data);
     } catch {
       setError("تعذّر إرسال الطلب الآن. جرّب مرة ثانية بعد لحظات.");
@@ -137,117 +142,153 @@ function Index() {
     }
   }
 
-  if (tracked) {
-    const current = Math.max(0, progress.findIndex(([status]) => status === tracked.status));
-    return (
-      <main dir="rtl" className="min-h-screen bg-background px-4 py-6 sm:px-6">
-        <div className="mx-auto max-w-2xl animate-float-in">
-          <BrandHeader />
-          <section className="mt-8 overflow-hidden rounded-2xl border border-border bg-card shadow-xl">
-            <div className="bg-success px-6 py-7 text-success-foreground sm:px-9">
-              <div className="flex items-center gap-3">
-                <span className="grid size-12 shrink-0 place-items-center rounded-full bg-background/15"><Check /></span>
-                <div className="min-w-0"><p className="text-sm font-bold opacity-80">طلبك مؤكد</p><h1 className="truncate text-2xl font-black">نم نم وياك بالطريق</h1></div>
-              </div>
-              <p className="mt-4 text-sm opacity-85">رقم الطلب: {tracked.id.slice(0, 8).toUpperCase()}</p>
-            </div>
-            <div className="p-6 sm:p-9">
-              <div className="space-y-1">
-                {progress.map(([status, title, note], index) => {
-                  const done = index <= current;
-                  return <div key={status} className="grid grid-cols-[auto_minmax(0,1fr)] gap-4">
-                    <div className="flex flex-col items-center"><span className={`grid size-9 place-items-center rounded-full border-2 ${done ? "border-success bg-success text-success-foreground" : "border-border bg-background text-muted-foreground"}`}>{done ? <Check className="size-4" /> : index + 1}</span>{index < 3 && <span className={`h-12 w-0.5 ${index < current ? "bg-success" : "bg-border"}`} />}</div>
-                    <div className="pt-1"><p className={`font-bold ${done ? "text-foreground" : "text-muted-foreground"}`}>{title}</p><p className="text-sm text-muted-foreground">{note}</p></div>
-                  </div>;
-                })}
-              </div>
-              <div className="mt-7 border-t border-border pt-6">
-                <h2 className="font-extrabold">ملخص الحساب</h2>
-                <div className="mt-4 space-y-3 text-sm">
-                  <PriceRow label="سعر المشتريات" value={tracked.purchase_price} pending={!tracked.purchase_price} />
-                  <PriceRow label="أجرة التوصيل" value={tracked.delivery_fee} pending={!tracked.delivery_fee} />
-                  <PriceRow label="المجموع الكلي" value={tracked.total_price ?? 0} pending={!tracked.total_price} strong />
-                </div>
-              </div>
-              <Button variant="outline" size="lg" className="mt-7 w-full rounded-xl" onClick={() => setTracked(null)}>إنشاء طلب جديد</Button>
-            </div>
-          </section>
-        </div>
-      </main>
-    );
+  const current = tracked ? Math.max(0, progress.findIndex(([status]) => status === tracked.status)) : 0;
+  const activeOrders = myOrders.filter((o) => o.status !== "completed");
+  const pastOrders = myOrders.filter((o) => o.status === "completed");
+  const selected = categories.find((c) => c.id === category)!;
+
+  function openOrder(id: string) {
+    setCategory(id); setStep(1); setError(""); setSheetOpen(true);
+  }
+  function selectTab(next: "home" | "orders") {
+    void navigate({ to: "/", search: { tab: next }, replace: true });
   }
 
   return (
-    <main dir="rtl" className="min-h-screen bg-background pb-24">
+    <main dir="rtl" className="min-h-screen bg-background pb-28">
       {!dismissInstall && <div className="border-b border-primary/15 bg-surface-warm px-4 py-2.5">
-        <div className="mx-auto grid max-w-6xl grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
-          <p className="min-w-0 text-xs font-medium text-foreground sm:text-sm">لطلب أسرع وتجربة أفضل، ثبّت نم نم على شاشتك الرئيسية</p>
+        <div className="mx-auto grid max-w-2xl grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
+          <p className="min-w-0 text-xs font-medium text-foreground">لطلب أسرع وتجربة أفضل، ثبّت نم نم على شاشتك الرئيسية</p>
           <div className="flex shrink-0 items-center gap-1"><Button variant="ghost" size="sm" className="text-primary" onClick={() => void deferredInstall.current?.prompt()}>تثبيت</Button><Button variant="ghost" size="icon" aria-label="إغلاق" onClick={() => setDismissInstall(true)}><X /></Button></div>
         </div>
       </div>}
 
-      <div className="mx-auto max-w-6xl px-4 sm:px-6">
+      <div className="mx-auto max-w-2xl px-4">
         <BrandHeader />
-        <section className="grid items-center gap-8 py-10 lg:grid-cols-[1.05fr_.95fr] lg:py-16">
-          <div className="animate-float-in">
-            <span className="inline-flex items-center gap-2 rounded-full bg-success/10 px-3 py-1.5 text-sm font-bold text-success"><span className="size-2 rounded-full bg-success" />متوفر الآن لخدمتك</span>
-            <h1 className="mt-5 max-w-2xl text-4xl font-black leading-[1.18] sm:text-5xl lg:text-6xl">نم نم .. نشتري لك <span className="text-primary">كلشي</span> ونوصله لباب بيتك!</h1>
-            <p className="mt-5 max-w-xl text-lg leading-8 text-muted-foreground">من مقاضي البيت إلى طلبك الخاص. اكتب اللي تحتاجه، وخلي الباقي علينا.</p>
-            <div className="mt-7 flex items-center gap-3 text-sm font-bold text-foreground"><span className="grid size-10 place-items-center rounded-full bg-primary/10 text-primary"><Sparkles /></span>شراء شخصي · توصيل سريع · متابعة مباشرة</div>
-          </div>
-          <div className="relative mx-auto w-full max-w-md lg:max-w-none">
-            <div className="absolute inset-8 rounded-full bg-primary/10 blur-3xl" />
-            <img src={appIcon} alt="صندوق نم نم السريع" width={1024} height={1024} className="relative aspect-square w-full object-contain drop-shadow-2xl" />
-          </div>
-        </section>
 
-        <section aria-labelledby="categories-title" className="pb-12">
-          <div className="flex items-end justify-between gap-4"><div><p className="text-sm font-bold text-primary">اختر وجهتك</p><h2 id="categories-title" className="mt-1 text-2xl font-black">شنو تحتاج اليوم؟</h2></div><span className="hidden text-sm text-muted-foreground sm:block">نشتري من أي متجر تختاره</span></div>
-          <div className="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
-            {categories.map((item) => <button key={item.id} type="button" onClick={() => { setCategory(item.id); document.getElementById("order-form")?.scrollIntoView({ behavior: "smooth" }); }} className={`group min-h-40 rounded-2xl border p-4 text-right shadow-sm transition duration-200 hover:-translate-y-1 hover:shadow-xl sm:p-5 ${category === item.id ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card text-card-foreground"}`}>
-              <span className={`grid size-11 place-items-center rounded-xl ${category === item.id ? "bg-background/15" : "bg-surface-warm text-primary"}`}><item.icon /></span>
-              <h3 className="mt-5 text-base font-extrabold leading-6">{item.name}</h3><p className={`mt-1 text-xs ${category === item.id ? "opacity-80" : "text-muted-foreground"}`}>{item.note}</p>
-            </button>)}
-          </div>
-        </section>
+        {tab === "home" ? <div className="animate-float-in space-y-6 pt-2">
+          <button type="button" onClick={() => openOrder(category)} className="flex w-full items-center gap-3 rounded-2xl border border-border bg-card p-4 text-right shadow-sm transition hover:shadow-xl">
+            <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary"><MapPin /></span>
+            <span className="min-w-0 flex-1"><span className="block text-xs text-muted-foreground">توصيل إلى</span><span className="block truncate font-extrabold">{address || "منزلك / المنطقة الحالية"}</span></span>
+            <ChevronLeft className="shrink-0 text-muted-foreground" />
+          </button>
 
-        <section id="order-form" className="grid gap-8 border-t border-border py-12 lg:grid-cols-[.75fr_1.25fr] lg:py-16">
-          <div><p className="text-sm font-bold text-primary">طلبك بثلاث خطوات</p><h2 className="mt-2 text-3xl font-black">احجيلنا شتريد، وإحنا نتصرّف</h2><p className="mt-4 leading-7 text-muted-foreground">ما تحتاج تبحث بين عشرات المتاجر. نم نم يشتري بدالك ويوصل كلشي لمكانك.</p>
-            <div className="mt-8 flex items-center gap-3">{[1,2].map((item) => <span key={item} className={`h-1.5 flex-1 rounded-full ${item <= step ? "bg-primary" : "bg-border"}`} />)}</div><p className="mt-2 text-xs font-bold text-muted-foreground">الخطوة {step} من 2</p>
-          </div>
-          <form onSubmit={submitOrder} className="rounded-2xl border border-border bg-card p-5 shadow-xl sm:p-8">
-            {step === 1 ? <div className="animate-float-in">
-              <label className="text-sm font-extrabold" htmlFor="items">قائمة الأغراض المطلوبة</label>
-              <div className="relative mt-2"><textarea ref={textareaRef} id="items" value={items} onInput={resizeItems} onChange={(e) => setItems(e.target.value)} rows={5} placeholder={'• 2 كيلو رز\n• كارتون ماء\n• منظف ملابس'} className="min-h-36 w-full resize-none rounded-xl border border-input bg-background p-4 pb-12 text-sm leading-7 outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/10" /><Button type="button" variant="ghost" size="sm" className="absolute bottom-2 left-2 text-muted-foreground" title="قريباً"><Mic />ملاحظة صوتية</Button></div>
-              <Button type="button" variant="hero" size="xl" className="mt-5 w-full" onClick={() => items.trim() ? setStep(2) : setError("اكتب الأغراض المطلوبة أولاً.")}>كمّل تفاصيل التوصيل <ChevronLeft /></Button>
-            </div> : <div className="animate-float-in space-y-5">
-              <Field label="عنوان التسليم" icon={<MapPin />}><input value={address} onChange={(e) => setAddress(e.target.value)} placeholder="المنطقة، الشارع، أقرب نقطة دالة" className="w-full bg-transparent py-3 outline-none" /><Button type="button" variant="ghost" size="icon" aria-label="تحديد على الخريطة" title="تحديد على الخريطة"><MapPin /></Button></Field>
-              <div><label className="text-sm font-extrabold">رقم الهاتف للتأكيد</label><div className="mt-2 grid grid-cols-[auto_minmax(0,1fr)] overflow-hidden rounded-xl border border-input bg-background focus-within:border-primary focus-within:ring-4 focus-within:ring-primary/10"><span dir="ltr" className="flex items-center gap-2 border-l border-input px-3 font-bold">🇮🇶 +964</span><input dir="ltr" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="7XX XXX XXXX" className="min-w-0 px-4 py-3 outline-none" /></div></div>
-              <div><label className="text-sm font-extrabold">الحد الأعلى للمشتريات <span className="font-normal text-muted-foreground">(اختياري)</span></label><div className="mt-2 flex items-center rounded-xl border border-input bg-background px-4 focus-within:border-primary focus-within:ring-4 focus-within:ring-primary/10"><input dir="ltr" inputMode="numeric" value={budget} onChange={(e) => setBudget(e.target.value)} placeholder="50,000" className="min-w-0 flex-1 py-3 outline-none" /><span className="font-bold text-muted-foreground">د.ع</span></div></div>
-              {error && <p role="alert" className="rounded-xl bg-destructive/10 px-4 py-3 text-sm font-bold text-destructive">{error}</p>}
-              <Button variant="hero" size="xl" className="w-full" disabled={sending}>{sending ? "جاري إرسال طلبك..." : "تأكيد وإرسال الطلب لـ نم نم"}<ArrowLeft /></Button>
-              <Button type="button" variant="ghost" className="w-full" onClick={() => setStep(1)}>رجوع للقائمة</Button>
-            </div>}
-          </form>
-        </section>
+          <section className="relative overflow-hidden rounded-2xl bg-primary p-5 text-primary-foreground shadow-xl">
+            <div className="relative z-10 max-w-[65%]">
+              <p className="text-xs font-bold opacity-85">متوفر الآن لخدمتك</p>
+              <h1 className="mt-2 text-2xl font-black leading-snug">نشتري لك كلشي ونوصله لباب بيتك!</h1>
+            </div>
+            <img src={appIcon} alt="" width={160} height={160} className="absolute -bottom-4 -left-4 size-36 object-contain drop-shadow-2xl" />
+          </section>
 
-        {myOrders.length > 0 && <section aria-labelledby="my-orders" className="border-t border-border py-12">
-          <p className="text-sm font-bold text-primary">حسابك</p>
-          <h2 id="my-orders" className="mt-1 text-2xl font-black">طلباتي</h2>
-          <div className="mt-5 grid gap-3 sm:grid-cols-2">
-            {myOrders.map((order) => {
-              const label = progress.find(([s]) => s === order.status)?.[1] ?? order.status;
-              return <button key={order.id} type="button" onClick={() => setTracked(order)} className="rounded-2xl border border-border bg-card p-4 text-right shadow-sm transition hover:-translate-y-0.5 hover:shadow-xl">
-                <div className="flex items-center justify-between gap-3"><span className="font-extrabold">{order.store_type}</span><span className="rounded-full bg-success/10 px-3 py-1 text-xs font-bold text-success">{label}</span></div>
-                <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">{order.items_list}</p>
-                <p className="mt-3 text-xs text-muted-foreground">#{order.id.slice(0, 8).toUpperCase()} · {new Date(order.created_at).toLocaleDateString("ar-IQ")}</p>
-              </button>;
+          <section aria-labelledby="categories-title">
+            <h2 id="categories-title" className="text-lg font-black">شنو تحتاج اليوم؟</h2>
+            <div className="mt-3 grid grid-cols-2 gap-3">
+              {categories.map((item) => <button key={item.id} type="button" onClick={() => openOrder(item.id)} className="group rounded-2xl border border-border bg-card p-4 text-right shadow-sm transition duration-200 hover:-translate-y-1 hover:border-primary hover:shadow-xl active:scale-[0.98]">
+                <span className="grid size-11 place-items-center rounded-xl bg-surface-warm text-primary transition group-hover:bg-primary group-hover:text-primary-foreground"><item.icon /></span>
+                <h3 className="mt-4 text-sm font-extrabold leading-6">{item.name}</h3><p className="mt-0.5 text-xs text-muted-foreground">{item.note}</p>
+              </button>)}
+            </div>
+          </section>
+
+          {activeOrders[0] && <button type="button" onClick={() => setTracked(activeOrders[0])} className="flex w-full items-center gap-3 rounded-2xl border border-success/30 bg-success/10 p-4 text-right">
+            <span className="grid size-10 shrink-0 place-items-center rounded-full bg-success text-success-foreground"><Package className="size-5" /></span>
+            <span className="min-w-0 flex-1"><span className="block text-xs font-bold text-success">طلب نشط</span><span className="block truncate font-extrabold">{progress.find(([s]) => s === activeOrders[0].status)?.[1]}</span></span>
+            <ChevronLeft className="shrink-0 text-success" />
+          </button>}
+        </div> : <div className="animate-float-in space-y-6 pt-2">
+          <h1 className="text-2xl font-black">طلباتي</h1>
+          {myOrders.length === 0 ? <div className="rounded-2xl border border-dashed border-border bg-card p-8 text-center">
+            <Package className="mx-auto size-10 text-muted-foreground" /><p className="mt-3 font-bold">ما عندك طلبات بعد</p>
+            <Button variant="hero" className="mt-4" onClick={() => selectTab("home")}>اطلب الآن</Button>
+          </div> : <>
+            <OrderList title="الطلبات الحالية" orders={activeOrders} onOpen={setTracked} />
+            <OrderList title="السجل السابق" orders={pastOrders} onOpen={setTracked} />
+          </>}
+        </div>}
+      </div>
+
+      <Sheet open={sheetOpen} onClose={() => setSheetOpen(false)} title={selected.name}>
+        <form onSubmit={submitOrder}>
+          <div className="mb-5 flex items-center gap-2">{[1, 2].map((i) => <span key={i} className={`h-1.5 flex-1 rounded-full ${i <= step ? "bg-primary" : "bg-border"}`} />)}</div>
+          {step === 1 ? <div className="animate-float-in">
+            <label className="text-sm font-extrabold" htmlFor="items">قائمة الأغراض المطلوبة</label>
+            <div className="relative mt-2"><textarea ref={textareaRef} id="items" value={items} onInput={resizeItems} onChange={(e) => setItems(e.target.value)} rows={5} placeholder={'• 2 كيلو رز\n• كارتون ماء\n• منظف ملابس'} className="min-h-36 w-full resize-none rounded-xl border border-input bg-background p-4 pb-12 text-sm leading-7 outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/10" /><Button type="button" variant="ghost" size="sm" className="absolute bottom-2 left-2 text-muted-foreground" title="قريباً"><Mic />ملاحظة صوتية</Button></div>
+            {error && <p role="alert" className="mt-3 rounded-xl bg-destructive/10 px-4 py-3 text-sm font-bold text-destructive">{error}</p>}
+            <Button type="button" variant="hero" size="xl" className="mt-5 w-full" onClick={() => { if (items.trim()) { setError(""); setStep(2); } else setError("اكتب الأغراض المطلوبة أولاً."); }}>كمّل تفاصيل التوصيل <ChevronLeft /></Button>
+          </div> : <div className="animate-float-in space-y-5">
+            <Field label="عنوان التسليم" icon={<MapPin />}><input value={address} onChange={(e) => setAddress(e.target.value)} placeholder="المنطقة، الشارع، أقرب نقطة دالة" className="w-full bg-transparent py-3 outline-none" /><Button type="button" variant="ghost" size="icon" aria-label="تحديد على الخريطة" title="تحديد على الخريطة"><MapPin /></Button></Field>
+            <div><label className="text-sm font-extrabold">رقم الهاتف للتأكيد</label><div className="mt-2 grid grid-cols-[auto_minmax(0,1fr)] overflow-hidden rounded-xl border border-input bg-background focus-within:border-primary focus-within:ring-4 focus-within:ring-primary/10"><span dir="ltr" className="flex items-center gap-2 border-l border-input px-3 font-bold">🇮🇶 +964</span><input dir="ltr" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="7XX XXX XXXX" className="min-w-0 px-4 py-3 outline-none" /></div></div>
+            <div><label className="text-sm font-extrabold">الحد الأعلى للمشتريات <span className="font-normal text-muted-foreground">(اختياري)</span></label><div className="mt-2 flex items-center rounded-xl border border-input bg-background px-4 focus-within:border-primary focus-within:ring-4 focus-within:ring-primary/10"><input dir="ltr" inputMode="numeric" value={budget} onChange={(e) => setBudget(e.target.value)} placeholder="50,000" className="min-w-0 flex-1 py-3 outline-none" /><span className="font-bold text-muted-foreground">د.ع</span></div></div>
+            {error && <p role="alert" className="rounded-xl bg-destructive/10 px-4 py-3 text-sm font-bold text-destructive">{error}</p>}
+            <Button variant="hero" size="xl" className="w-full" disabled={sending}>{sending ? "جاري إرسال طلبك..." : "تأكيد وإرسال الطلب لـ نم نم"}<ArrowLeft /></Button>
+            <Button type="button" variant="ghost" className="w-full" onClick={() => setStep(1)}>رجوع للقائمة</Button>
+          </div>}
+        </form>
+      </Sheet>
+
+      <Sheet open={!!tracked} onClose={() => setTracked(null)} title={tracked ? `طلب #${tracked.id.slice(0, 8).toUpperCase()}` : ""}>
+        {tracked && <div>
+          <div className="space-y-1">
+            {progress.map(([status, title, note], index) => {
+              const done = index <= current;
+              return <div key={status} className="grid grid-cols-[auto_minmax(0,1fr)] gap-4">
+                <div className="flex flex-col items-center"><span className={`grid size-9 place-items-center rounded-full border-2 transition ${done ? "border-success bg-success text-success-foreground" : "border-border bg-background text-muted-foreground"}`}>{done ? <Check className="size-4" /> : index + 1}</span>{index < 3 && <span className={`h-9 w-0.5 ${index < current ? "bg-success" : "bg-border"}`} />}</div>
+                <div className="pt-1"><p className={`font-bold ${done ? "text-foreground" : "text-muted-foreground"}`}>{title}</p><p className="text-sm text-muted-foreground">{note}</p></div>
+              </div>;
             })}
           </div>
-        </section>}
-      </div>
+          <div className="mt-5 rounded-2xl bg-muted/60 p-4">
+            <h3 className="font-extrabold">ملخص الحساب</h3>
+            <div className="mt-3 space-y-3 text-sm">
+              <PriceRow label="سعر المشتريات" value={tracked.purchase_price} pending={!tracked.purchase_price} />
+              <PriceRow label="أجرة التوصيل" value={tracked.delivery_fee} pending={!tracked.delivery_fee} />
+              <PriceRow label="المجموع الكلي" value={tracked.total_price ?? 0} pending={!tracked.total_price} strong />
+            </div>
+          </div>
+        </div>}
+      </Sheet>
+
+      <BottomNav active={tab} onSelect={selectTab} />
     </main>
   );
+}
+
+function OrderList({ title, orders, onOpen }: { title: string; orders: NonNullable<TrackedOrder>[]; onOpen: (o: NonNullable<TrackedOrder>) => void }) {
+  if (orders.length === 0) return null;
+  return <section>
+    <h2 className="text-sm font-bold text-muted-foreground">{title}</h2>
+    <div className="mt-3 space-y-3">
+      {orders.map((order) => {
+        const label = progress.find(([s]) => s === order.status)?.[1] ?? order.status;
+        const done = order.status === "completed";
+        return <button key={order.id} type="button" onClick={() => onOpen(order)} className="w-full rounded-2xl border border-border bg-card p-4 text-right shadow-sm transition hover:shadow-xl">
+          <div className="flex items-center justify-between gap-3"><span className="min-w-0 truncate font-extrabold">{order.store_type}</span><span className={`shrink-0 rounded-full px-3 py-1 text-xs font-bold ${done ? "bg-muted text-muted-foreground" : "bg-success/10 text-success"}`}>{label}</span></div>
+          <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">{order.items_list}</p>
+          <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground"><span>#{order.id.slice(0, 8).toUpperCase()} · {new Date(order.created_at).toLocaleDateString("ar-IQ")}</span>{order.total_price ? <span className="font-bold text-foreground">{Number(order.total_price).toLocaleString("ar-IQ")} د.ع</span> : null}</div>
+        </button>;
+      })}
+    </div>
+  </section>;
+}
+
+function Sheet({ open, onClose, title, children }: { open: boolean; onClose: () => void; title: string; children: React.ReactNode }) {
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    document.addEventListener("keydown", onKey);
+    document.body.style.overflow = "hidden";
+    return () => { document.removeEventListener("keydown", onKey); document.body.style.overflow = ""; };
+  }, [open, onClose]);
+  if (!open) return null;
+  return <div dir="rtl" className="fixed inset-0 z-50 flex items-end justify-center sm:items-center" role="dialog" aria-modal="true" aria-label={title}>
+    <button type="button" aria-label="إغلاق" onClick={onClose} className="absolute inset-0 bg-foreground/40 backdrop-blur-sm animate-in fade-in" />
+    <div className="relative max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-t-3xl bg-card p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-xl animate-in slide-in-from-bottom duration-300 sm:rounded-3xl">
+      <div className="mx-auto mb-4 h-1.5 w-12 rounded-full bg-border sm:hidden" />
+      <div className="mb-4 flex items-center justify-between gap-3"><h2 className="min-w-0 truncate text-lg font-black">{title}</h2><Button variant="ghost" size="icon" aria-label="إغلاق" onClick={onClose}><X /></Button></div>
+      {children}
+    </div>
+  </div>;
 }
 
 function BrandHeader() {
@@ -258,7 +299,7 @@ function BrandHeader() {
   }
   return <header className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 py-4 sm:flex sm:justify-between">
     <Link to="/" className="flex min-w-0 items-center gap-3"><img src={appIcon} alt="" width={48} height={48} className="size-12 shrink-0 rounded-xl shadow-sm" /><div className="min-w-0"><p className="truncate text-2xl font-black text-primary">نم نم</p><p className="truncate text-xs font-medium text-muted-foreground">نشتري ونوصل لك أي شيء</p></div></Link>
-    <div className="flex shrink-0 items-center gap-2"><span className="hidden items-center gap-2 rounded-full border border-border bg-card px-3 py-2 text-xs font-bold shadow-sm sm:flex"><MapPin className="size-4 text-primary" />توصيل إلى: منطقتك الحالية</span><Button variant="ghost" size="sm" asChild><Link to="/driver"><Package />السائق</Link></Button><Button variant="ghost" size="icon" aria-label="تسجيل الخروج" title="تسجيل الخروج" onClick={() => void signOut()}><LogOut /></Button></div>
+    <div className="flex shrink-0 items-center gap-2"><span className="hidden items-center gap-2 rounded-full border border-border bg-card px-3 py-2 text-xs font-bold shadow-sm sm:flex"><MapPin className="size-4 text-primary" />توصيل إلى: منطقتك الحالية</span><Button variant="ghost" size="icon" aria-label="تسجيل الخروج" title="تسجيل الخروج" onClick={() => void signOut()}><LogOut /></Button></div>
   </header>;
 }
 
