@@ -3,6 +3,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { Check, LogOut, Package, RefreshCw, Search, ShoppingBag, Truck } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { BottomNav } from "@/components/BottomNav";
 import { getDriverOrders, updateDriverOrder } from "@/lib/orders.functions";
 import type { Tables } from "@/integrations/supabase/types";
 import { supabase } from "@/integrations/supabase/client";
@@ -69,16 +70,17 @@ function DriverPage() {
   if (!activePin) return <main dir="rtl" className="grid min-h-screen place-items-center bg-foreground px-4 text-background"><section className="w-full max-w-sm rounded-2xl border border-background/10 bg-foreground p-7 shadow-xl">
     <div className="mx-auto grid size-14 place-items-center rounded-2xl bg-primary text-primary-foreground"><Truck /></div><h1 className="mt-5 text-center text-2xl font-black">دخول فريق نم نم</h1><p className="mt-2 text-center text-sm text-background/60">أدخل رمز السائق لعرض الطلبات النشطة</p>
     <form onSubmit={unlock} className="mt-7"><label className="text-sm font-bold" htmlFor="pin">رمز الدخول</label><input id="pin" type="password" inputMode="numeric" autoFocus value={pin} onChange={(e) => setPin(e.target.value)} className="mt-2 w-full rounded-xl border border-background/15 bg-background/5 px-4 py-3 text-center text-xl tracking-widest outline-none focus:border-primary" placeholder="••••••" />{error && <p className="mt-3 text-sm font-bold text-primary">{error}</p>}<Button variant="hero" size="xl" className="mt-5 w-full" disabled={loading}>{loading ? "جاري التحقق..." : "دخول اللوحة"}</Button><Button variant="ghost" className="mt-2 w-full text-background/70 hover:bg-background/10 hover:text-background" asChild><Link to="/">العودة لواجهة الطلب</Link></Button></form>
-  </section></main>;
+  </section><BottomNav active="driver" dark /></main>;
 
   const shown = filter === "all" ? orders : orders.filter((order) => order.status === filter);
-  return <main dir="rtl" className="min-h-screen bg-foreground text-background">
+  return <main dir="rtl" className="min-h-screen bg-foreground pb-28 text-background">
     <header className="border-b border-background/10 px-4 py-4 sm:px-6"><div className="mx-auto grid max-w-7xl grid-cols-[minmax(0,1fr)_auto] items-center gap-4"><div className="flex min-w-0 items-center gap-3"><span className="grid size-11 shrink-0 place-items-center rounded-xl bg-primary text-primary-foreground"><Truck /></span><div className="min-w-0"><h1 className="truncate text-xl font-black">لوحة السائق</h1><p className="truncate text-xs text-background/50">تتحدّث فور وصول أي تغيير</p></div></div><div className="flex shrink-0"><Button variant="ghost" size="icon" title="تحديث" onClick={() => void refresh()} className="text-background hover:bg-background/10"><RefreshCw /></Button><Button variant="ghost" size="icon" title="خروج" onClick={() => setActivePin("")} className="text-background hover:bg-background/10"><LogOut /></Button></div></div></header>
     <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4"><Stat icon={<Package />} label="الطلبات النشطة" value={orders.filter((o) => o.status !== "completed").length} /><Stat icon={<ShoppingBag />} label="قيد الشراء" value={orders.filter((o) => o.status === "buying").length} /><Stat icon={<Truck />} label="في الطريق" value={orders.filter((o) => o.status === "delivering").length} /><Stat icon={<Check />} label="مكتملة" value={orders.filter((o) => o.status === "completed").length} /></div>
       <div className="mt-6 flex gap-2 overflow-x-auto pb-2">{filters.map(([id,label]) => <Button key={id} variant={filter === id ? "hero" : "outline"} size="sm" className={filter === id ? "" : "border-background/15 bg-transparent text-background hover:bg-background/10 hover:text-background"} onClick={() => setFilter(id)}>{label}<span className="opacity-60">{id === "all" ? orders.length : orders.filter((o) => o.status === id).length}</span></Button>)}</div>
       {shown.length === 0 ? <div className="mt-12 text-center text-background/50"><Search className="mx-auto size-10" /><p className="mt-3 font-bold">ماكو طلبات ضمن هذا التصنيف</p></div> : <div className="mt-4 grid gap-4 xl:grid-cols-2">{shown.map((order) => <OrderCard key={order.id} order={order} pin={activePin} onSaved={() => refresh()} />)}</div>}
     </div>
+    <BottomNav active="driver" dark />
   </main>;
 }
 
