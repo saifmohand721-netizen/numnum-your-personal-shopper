@@ -46,6 +46,7 @@ export type Database = {
           store_type: string
           total_price: number | null
           user_id: string | null
+          voice_note_url: string | null
         }
         Insert: {
           budget_limit?: number | null
@@ -60,6 +61,7 @@ export type Database = {
           store_type: string
           total_price?: number | null
           user_id?: string | null
+          voice_note_url?: string | null
         }
         Update: {
           budget_limit?: number | null
@@ -74,6 +76,7 @@ export type Database = {
           store_type?: string
           total_price?: number | null
           user_id?: string | null
+          voice_note_url?: string | null
         }
         Relationships: []
       }

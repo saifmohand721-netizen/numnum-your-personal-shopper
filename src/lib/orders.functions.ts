@@ -14,6 +14,7 @@ const createOrderInput = z.object({
   itemsList: z.string().min(2).max(5000),
   deliveryAddress: z.string().min(3).max(500),
   budgetLimit: z.number().min(0).nullable(),
+  voiceNotePath: z.string().max(300).nullable().optional(),
 });
 
 async function getAdmin() {
@@ -31,10 +32,12 @@ export const createOrder = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((value) => createOrderInput.parse(value))
   .handler(async ({ data, context }) => {
+    const voicePath = data.voiceNotePath && data.voiceNotePath.startsWith(`${context.userId}/`) ? data.voiceNotePath : null;
     const admin = await getAdmin();
     const { data: order, error } = await admin
       .from("orders")
       .insert({
+        voice_note_url: voicePath,
         user_id: context.userId,
         customer_phone: data.phone,
         store_type: data.storeType,
@@ -86,7 +89,12 @@ export const getDriverOrders = createServerFn({ method: "GET" })
       .order("created_at", { ascending: false })
       .limit(100);
     if (error) throw new Error(error.message);
-    return orders;
+    // Bucket is private: hand the driver short-lived signed links only.
+    return Promise.all(orders.map(async (order) => {
+      if (!order.voice_note_url) return order;
+      const { data: signed } = await admin.storage.from("voice-notes").createSignedUrl(order.voice_note_url, 3600);
+      return { ...order, voice_note_url: signed?.signedUrl ?? null };
+    }));
   });
 
 export const updateDriverOrder = createServerFn({ method: "POST" })

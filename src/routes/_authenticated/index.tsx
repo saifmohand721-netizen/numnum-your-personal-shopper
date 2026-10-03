@@ -62,6 +62,7 @@ function Index() {
   const [address, setAddress] = useState("");
   const [phone, setPhone] = useState("");
   const [budget, setBudget] = useState("");
+  const [voicePath, setVoicePath] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
   const [tracked, setTracked] = useState<TrackedOrder>(null);
@@ -132,8 +133,9 @@ function Index() {
         itemsList: items.trim(),
         deliveryAddress: address.trim(),
         budgetLimit: budget ? Number(budget.replace(/\D/g, "")) : null,
+        voiceNotePath: voicePath,
       } });
-      setSheetOpen(false); setItems(""); setStep(1);
+      setSheetOpen(false); setItems(""); setVoicePath(null); setStep(1);
       setTracked(data);
     } catch {
       setError("تعذّر إرسال الطلب الآن. جرّب مرة ثانية بعد لحظات.");
@@ -214,7 +216,7 @@ function Index() {
           <div className="mb-5 flex items-center gap-2">{[1, 2].map((i) => <span key={i} className={`h-1.5 flex-1 rounded-full ${i <= step ? "bg-primary" : "bg-border"}`} />)}</div>
           {step === 1 ? <div className="animate-float-in">
             <label className="text-sm font-extrabold" htmlFor="items">قائمة الأغراض المطلوبة</label>
-            <div className="relative mt-2"><textarea ref={textareaRef} id="items" value={items} onInput={resizeItems} onChange={(e) => setItems(e.target.value)} rows={5} placeholder={'• 2 كيلو رز\n• كارتون ماء\n• منظف ملابس'} className="min-h-36 w-full resize-none rounded-xl border border-input bg-background p-4 pb-12 text-sm leading-7 outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/10" /><Button type="button" variant="ghost" size="sm" className="absolute bottom-2 left-2 text-muted-foreground" title="قريباً"><Mic />ملاحظة صوتية</Button></div>
+            <div className="relative mt-2"><textarea ref={textareaRef} id="items" value={items} onInput={resizeItems} onChange={(e) => setItems(e.target.value)} rows={5} placeholder={'• 2 كيلو رز\n• كارتون ماء\n• منظف ملابس'} className="min-h-36 w-full resize-none rounded-xl border border-input bg-background p-4 pb-12 text-sm leading-7 outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/10" /></div><VoiceRecorder path={voicePath} onChange={setVoicePath} />
             {error && <p role="alert" className="mt-3 rounded-xl bg-destructive/10 px-4 py-3 text-sm font-bold text-destructive">{error}</p>}
             <Button type="button" variant="hero" size="xl" className="mt-5 w-full" onClick={() => { if (items.trim()) { setError(""); setStep(2); } else setError("اكتب الأغراض المطلوبة أولاً."); }}>كمّل تفاصيل التوصيل <ChevronLeft /></Button>
           </div> : <div className="animate-float-in space-y-5">
@@ -307,3 +309,54 @@ function BrandHeader() {
 function Field({ label, icon, children }: { label: string; icon: React.ReactNode; children: React.ReactNode }) { return <div><label className="text-sm font-extrabold">{label}</label><div className="mt-2 flex items-center gap-2 rounded-xl border border-input bg-background px-3 focus-within:border-primary focus-within:ring-4 focus-within:ring-primary/10"><span className="text-primary">{icon}</span>{children}</div></div>; }
 
 function PriceRow({ label, value, pending, strong }: { label: string; value: number; pending: boolean; strong?: boolean }) { return <div className={`flex items-center justify-between gap-4 ${strong ? "border-t border-border pt-3 text-lg font-black" : "text-muted-foreground"}`}><span>{label}</span><span className={strong ? "text-primary" : "font-bold text-foreground"}>{pending ? "يُحدد بعد الشراء" : `${Number(value).toLocaleString("ar-IQ")} د.ع`}</span></div>; }
+function VoiceRecorder({ path, onChange }: { path: string | null; onChange: (p: string | null) => void }) {
+  const [state, setState] = useState<"idle" | "recording" | "uploading" | "error">("idle");
+  const [seconds, setSeconds] = useState(0);
+  const [preview, setPreview] = useState<string | null>(null);
+  const recorder = useRef<MediaRecorder | null>(null);
+
+  useEffect(() => {
+    if (state !== "recording") return;
+    const t = window.setInterval(() => setSeconds((s) => s + 1), 1000);
+    return () => window.clearInterval(t);
+  }, [state]);
+
+  async function start() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const rec = new MediaRecorder(stream);
+      const chunks: Blob[] = [];
+      rec.ondataavailable = (e) => e.data.size && chunks.push(e.data);
+      rec.onstop = async () => {
+        stream.getTracks().forEach((t) => t.stop());
+        const type = rec.mimeType || "audio/webm";
+        const blob = new Blob(chunks, { type });
+        setPreview(URL.createObjectURL(blob));
+        setState("uploading");
+        const { data: u } = await supabase.auth.getUser();
+        if (!u.user) return setState("error");
+        const ext = type.includes("mp4") ? "m4a" : type.includes("ogg") ? "ogg" : "webm";
+        const filePath = `${u.user.id}/${crypto.randomUUID()}.${ext}`;
+        const { error } = await supabase.storage.from("voice-notes").upload(filePath, blob, { contentType: type });
+        if (error) return setState("error");
+        onChange(filePath); setState("idle");
+      };
+      recorder.current = rec; setSeconds(0); rec.start(); setState("recording");
+    } catch { setState("error"); }
+  }
+
+  function remove() { onChange(null); setPreview(null); setState("idle"); }
+
+  return <div className="mt-3 rounded-xl border border-border bg-muted/40 p-3">
+    {state === "recording" ? <div className="flex items-center justify-between gap-3">
+      <span className="flex items-center gap-2 text-sm font-bold text-destructive"><span className="size-2.5 animate-pulse rounded-full bg-destructive" />جاري التسجيل {seconds}ث</span>
+      <Button type="button" size="sm" variant="destructive" onClick={() => recorder.current?.stop()}>إيقاف</Button>
+    </div> : preview && (path || state === "uploading") ? <div className="flex items-center gap-2">
+      <audio controls src={preview} className="h-10 min-w-0 flex-1" />
+      {state === "uploading" ? <span className="text-xs text-muted-foreground">جاري الرفع...</span> : <Button type="button" size="icon" variant="ghost" aria-label="حذف التسجيل" onClick={remove}><X /></Button>}
+    </div> : <div className="flex items-center justify-between gap-3">
+      <span className="text-xs text-muted-foreground">{state === "error" ? "تعذّر التسجيل. تأكد من السماح بالمايكروفون." : "تكدر تسجّل ملاحظة صوتية بدل الكتابة"}</span>
+      <Button type="button" size="sm" variant="outline" onClick={() => void start()}><Mic />تسجيل</Button>
+    </div>}
+  </div>;
+}
