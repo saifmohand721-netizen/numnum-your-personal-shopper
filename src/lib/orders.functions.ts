@@ -8,13 +8,14 @@ const trackingInput = z.object({ id: z.string().uuid() });
 
 const driverInput = z.object({ pin: z.string().min(4).max(64) });
 
+// تم تعديل شرط رقم الهاتف ليكون مرناً وقبول الأرقام العراقية بكافة صيغها (07x أو 964x أو +964x)
 const createOrderInput = z.object({
-  phone: z.string().regex(/^\+964\d{9,10}$/),
-  storeType: z.string().min(2).max(80),
-  itemsList: z.string().min(2).max(5000),
-  deliveryAddress: z.string().min(3).max(500),
-  budgetLimit: z.number().min(0).nullable(),
-  voiceNotePath: z.string().max(300).nullable().optional(),
+  phone: z.string().min(8, "رقم الهاتف قصير جداً").max(20),
+  storeType: z.string().min(1).max(100),
+  itemsList: z.string().min(1).max(5000),
+  deliveryAddress: z.string().min(1).max(500),
+  budgetLimit: z.number().min(0).nullable().optional(),
+  voiceNotePath: z.string().max(500).nullable().optional(),
 });
 
 async function getAdmin() {
@@ -32,8 +33,10 @@ export const createOrder = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((value) => createOrderInput.parse(value))
   .handler(async ({ data, context }) => {
-    const voicePath = data.voiceNotePath && data.voiceNotePath.startsWith(`${context.userId}/`) ? data.voiceNotePath : null;
+    // قبول مسار البصمة الصوتية مباشرة دون تقييده باشتراط البادئة
+    const voicePath = data.voiceNotePath || null;
     const admin = await getAdmin();
+    
     const { data: order, error } = await admin
       .from("orders")
       .insert({
@@ -43,11 +46,15 @@ export const createOrder = createServerFn({ method: "POST" })
         store_type: data.storeType,
         items_list: data.itemsList,
         delivery_address: data.deliveryAddress,
-        budget_limit: data.budgetLimit,
+        budget_limit: data.budgetLimit ?? null,
       })
       .select(CUSTOMER_COLUMNS)
       .single();
-    if (error) throw new Error(error.message);
+
+    if (error) {
+      console.error("Supabase Order Insert Error:", error);
+      throw new Error(error.message);
+    }
     return order;
   });
 
