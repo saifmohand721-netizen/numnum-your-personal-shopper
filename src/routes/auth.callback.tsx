@@ -13,10 +13,16 @@ export const Route = createFileRoute("/auth/callback")({
         const code = url.searchParams.get("code");
         const headers = new Headers();
         if (code) {
-          const { createRequestSupabase } = await import("@/lib/supabase-server.server");
-          const sb = createRequestSupabase(request, headers);
-          const { error } = await sb.auth.exchangeCodeForSession(code);
-          headers.set("Location", error ? "/auth?error=oauth" : "/");
+          try {
+            const { createRequestSupabase } = await import("@/lib/supabase-server.server");
+            const sb = createRequestSupabase(request, headers);
+            const { error } = await sb.auth.exchangeCodeForSession(code);
+            if (error) console.error("OAuth code exchange failed:", error.message);
+            headers.set("Location", error ? "/auth?error=oauth" : "/");
+          } catch (err) {
+            console.error("OAuth callback crashed:", err);
+            headers.set("Location", "/auth?error=oauth");
+          }
         } else {
           headers.set("Location", "/auth");
         }
