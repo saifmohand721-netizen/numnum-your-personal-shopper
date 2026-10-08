@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { BottomNav } from "@/components/BottomNav";
 import { getDriverOrders, updateDriverOrder } from "@/lib/orders.functions";
 import type { Tables } from "@/integrations/supabase/types";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabase";
 
 export const Route = createFileRoute("/driver")({
   head: () => ({
