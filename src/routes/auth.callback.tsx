@@ -1,10 +1,29 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabase";
 
 export const Route = createFileRoute("/auth/callback")({
   ssr: false,
+  // Official PKCE flow: exchange ?code on the server, store the session in cookies, redirect home.
+  server: {
+    handlers: {
+      GET: async ({ request }) => {
+        const url = new URL(request.url);
+        const code = url.searchParams.get("code");
+        const headers = new Headers();
+        if (code) {
+          const { createRequestSupabase } = await import("@/lib/supabase-server.server");
+          const sb = createRequestSupabase(request, headers);
+          const { error } = await sb.auth.exchangeCodeForSession(code);
+          headers.set("Location", error ? "/auth?error=oauth" : "/");
+        } else {
+          headers.set("Location", "/auth");
+        }
+        return new Response(null, { status: 302, headers });
+      },
+    },
+  },
   head: () => ({
     meta: [
       { title: "جاري تسجيل الدخول — نم نم" },

@@ -18,7 +18,7 @@ import appIcon from "@/assets/numnum-app-icon.png";
 import { Button } from "@/components/ui/button";
 import { BottomNav } from "@/components/BottomNav";
 import { createOrder, listMyOrders, trackOrder } from "@/lib/orders.functions";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabase";
 
 export const Route = createFileRoute("/_authenticated/")({
   head: () => ({

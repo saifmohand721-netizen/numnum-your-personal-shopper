@@ -128,7 +128,7 @@ function RootComponent() {
 
   useEffect(() => {
     let unsub = () => {};
-    void import("@/integrations/supabase/client").then(({ supabase }) => {
+    void import("@/lib/supabase").then(({ supabase }) => {
       const { data } = supabase.auth.onAuthStateChange((event) => {
         if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
         void router.invalidate();
