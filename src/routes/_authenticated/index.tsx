@@ -81,7 +81,7 @@ function Index() {
   }, []);
 
   useEffect(() => {
-    void listMyOrders().then(setMyOrders).catch(() => {});
+    void listMyOrders().then((rows) => setMyOrders(Array.isArray(rows) ? rows : [])).catch(() => {});
   }, [tracked?.id, tracked?.status]);
 
   useEffect(() => {
@@ -150,7 +150,7 @@ function Index() {
   const activeOrders = myOrders.filter((o) => o.status !== "completed");
   const activeOrder = activeOrders[0] ?? null;
   const pastOrders = myOrders.filter((o) => o.status === "completed");
-  const selected = categories.find((c) => c.id === category)!;
+  const selected = categories.find((c) => c.id === category) ?? categories[0];
 
   function openOrder(id: string) {
     setCategory(id); setStep(1); setError(""); setSheetOpen(true);
