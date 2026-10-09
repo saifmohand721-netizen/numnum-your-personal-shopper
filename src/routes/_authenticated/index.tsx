@@ -325,23 +325,31 @@ function VoiceRecorder({ path, onChange }: { path: string | null; onChange: (p: 
 
   async function start() {
     try {
+      if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
+        setState("error");
+        return;
+      }
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const rec = new MediaRecorder(stream);
       const chunks: Blob[] = [];
-      rec.ondataavailable = (e) => e.data.size && chunks.push(e.data);
+      rec.ondataavailable = (e) => { if (e.data?.size) chunks.push(e.data); };
+      rec.onerror = () => setState("error");
       rec.onstop = async () => {
-        stream.getTracks().forEach((t) => t.stop());
-        const type = rec.mimeType || "audio/webm";
-        const blob = new Blob(chunks, { type });
-        setPreview(URL.createObjectURL(blob));
-        setState("uploading");
-        const { data: u } = await supabase.auth.getUser();
-        if (!u.user) return setState("error");
-        const ext = type.includes("mp4") ? "m4a" : type.includes("ogg") ? "ogg" : "webm";
-        const filePath = `${u.user.id}/${crypto.randomUUID()}.${ext}`;
-        const { error } = await supabase.storage.from("voice-notes").upload(filePath, blob, { contentType: type });
-        if (error) return setState("error");
-        onChange(filePath); setState("idle");
+        try {
+          stream.getTracks().forEach((t) => t.stop());
+          const type = rec.mimeType || "audio/webm";
+          const blob = new Blob(chunks, { type });
+          setPreview(URL.createObjectURL(blob));
+          setState("uploading");
+          const { data: u } = await supabase.auth.getUser();
+          if (!u?.user) { setState("error"); return; }
+          const ext = type.includes("mp4") ? "m4a" : type.includes("ogg") ? "ogg" : "webm";
+          const id = typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+          const filePath = `${u.user.id}/${id}.${ext}`;
+          const { error } = await supabase.storage.from("voice-notes").upload(filePath, blob, { contentType: type });
+          if (error) { setState("error"); return; }
+          onChange(filePath); setState("idle");
+        } catch { setState("error"); }
       };
       recorder.current = rec; setSeconds(0); rec.start(); setState("recording");
     } catch { setState("error"); }
