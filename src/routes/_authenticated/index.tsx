@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { Component, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import {
   ArrowLeft,
   Check,
@@ -277,6 +277,22 @@ function OrderList({ title, orders, onOpen }: { title: string; orders: NonNullab
       })}
     </div>
   </section>;
+}
+
+class FormBoundary extends Component<{ onReset: () => void; children: ReactNode }, { failed: boolean }> {
+  state = { failed: false };
+  static getDerivedStateFromError() { return { failed: true }; }
+  componentDidCatch(err: unknown) { console.error("order form crashed:", err); }
+  render() {
+    if (this.state.failed) {
+      return <div className="rounded-2xl border border-border bg-card p-6 text-center">
+        <p className="font-bold">صار خلل بسيط بالنموذج</p>
+        <p className="mt-1 text-sm text-muted-foreground">سكّر النافذة وافتحها من جديد، طلبك محفوظ عندنا.</p>
+        <Button variant="hero" className="mt-4" onClick={() => { this.setState({ failed: false }); this.props.onReset(); }}>إغلاق</Button>
+      </div>;
+    }
+    return this.props.children;
+  }
 }
 
 function Sheet({ open, onClose, title, children }: { open: boolean; onClose: () => void; title: string; children: React.ReactNode }) {
