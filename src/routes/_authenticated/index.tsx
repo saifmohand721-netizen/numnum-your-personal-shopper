@@ -150,7 +150,7 @@ function Index() {
   const activeOrders = myOrders.filter((o) => o.status !== "completed");
   const activeOrder = activeOrders[0] ?? null;
   const pastOrders = myOrders.filter((o) => o.status === "completed");
-  const selected = categories.find((c) => c.id === category) ?? categories[0];
+  const selected = categories.find((c) => c.id === category) ?? categories[0]!;
 
   function openOrder(id: string) {
     setCategory(id); setStep(1); setError(""); setSheetOpen(true);
@@ -280,10 +280,10 @@ function OrderList({ title, orders, onOpen }: { title: string; orders: NonNullab
 }
 
 class FormBoundary extends Component<{ onReset: () => void; children: ReactNode }, { failed: boolean }> {
-  state = { failed: false };
+  override state = { failed: false };
   static getDerivedStateFromError() { return { failed: true }; }
-  componentDidCatch(err: unknown) { console.error("order form crashed:", err); }
-  render() {
+  override componentDidCatch(err: unknown) { console.error("order form crashed:", err); }
+  override render() {
     if (this.state.failed) {
       return <div className="rounded-2xl border border-border bg-card p-6 text-center">
         <p className="font-bold">صار خلل بسيط بالنموذج</p>
