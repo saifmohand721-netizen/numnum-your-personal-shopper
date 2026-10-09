@@ -68,7 +68,7 @@ export const trackOrder = createServerFn({ method: "GET" })
       .select(CUSTOMER_COLUMNS)
       .eq("id", data.id)
       .maybeSingle();
-    if (error) throw new Error(error.message);
+    if (error) { console.error("[createOrder] insert failed:", error); throw new Error(`DB: ${error.message}`); }
     return order;
   });
 

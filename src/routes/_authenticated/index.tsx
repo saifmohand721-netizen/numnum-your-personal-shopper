@@ -137,8 +137,10 @@ function Index() {
       } });
       setSheetOpen(false); setItems(""); setVoicePath(null); setStep(1);
       setTracked(data);
-    } catch {
-      setError("تعذّر إرسال الطلب الآن. جرّب مرة ثانية بعد لحظات.");
+    } catch (err) {
+      console.error("createOrder failed:", err);
+      const detail = err instanceof Error ? err.message : String(err);
+      setError(`تعذّر إرسال الطلب الآن. جرّب مرة ثانية بعد لحظات. (${detail.slice(0, 160)})`);
     } finally {
       setSending(false);
     }
