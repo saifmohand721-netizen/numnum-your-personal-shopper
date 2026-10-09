@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { Component, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import {
   ArrowLeft,
   Check,
@@ -81,7 +81,7 @@ function Index() {
   }, []);
 
   useEffect(() => {
-    void listMyOrders().then(setMyOrders).catch(() => {});
+    void listMyOrders().then((rows) => setMyOrders(Array.isArray(rows) ? rows : [])).catch(() => {});
   }, [tracked?.id, tracked?.status]);
 
   useEffect(() => {
@@ -150,7 +150,7 @@ function Index() {
   const activeOrders = myOrders.filter((o) => o.status !== "completed");
   const activeOrder = activeOrders[0] ?? null;
   const pastOrders = myOrders.filter((o) => o.status === "completed");
-  const selected = categories.find((c) => c.id === category)!;
+  const selected = categories.find((c) => c.id === category) ?? categories[0]!;
 
   function openOrder(id: string) {
     setCategory(id); setStep(1); setError(""); setSheetOpen(true);
@@ -214,6 +214,7 @@ function Index() {
       </div>
 
       <Sheet open={sheetOpen} onClose={() => setSheetOpen(false)} title={selected.name}>
+        <FormBoundary onReset={() => setSheetOpen(false)}>
         <form onSubmit={submitOrder}>
           <div className="mb-5 flex items-center gap-2">{[1, 2].map((i) => <span key={i} className={`h-1.5 flex-1 rounded-full ${i <= step ? "bg-primary" : "bg-border"}`} />)}</div>
           {step === 1 ? <div className="animate-float-in">
@@ -230,6 +231,7 @@ function Index() {
             <Button type="button" variant="ghost" className="w-full" onClick={() => setStep(1)}>رجوع للقائمة</Button>
           </div>}
         </form>
+        </FormBoundary>
       </Sheet>
 
       <Sheet open={!!tracked} onClose={() => setTracked(null)} title={tracked ? `طلب #${tracked.id.slice(0, 8).toUpperCase()}` : ""}>
@@ -275,6 +277,22 @@ function OrderList({ title, orders, onOpen }: { title: string; orders: NonNullab
       })}
     </div>
   </section>;
+}
+
+class FormBoundary extends Component<{ onReset: () => void; children: ReactNode }, { failed: boolean }> {
+  override state = { failed: false };
+  static getDerivedStateFromError() { return { failed: true }; }
+  override componentDidCatch(err: unknown) { console.error("order form crashed:", err); }
+  override render() {
+    if (this.state.failed) {
+      return <div className="rounded-2xl border border-border bg-card p-6 text-center">
+        <p className="font-bold">صار خلل بسيط بالنموذج</p>
+        <p className="mt-1 text-sm text-muted-foreground">سكّر النافذة وافتحها من جديد، طلبك محفوظ عندنا.</p>
+        <Button variant="hero" className="mt-4" onClick={() => { this.setState({ failed: false }); this.props.onReset(); }}>إغلاق</Button>
+      </div>;
+    }
+    return this.props.children;
+  }
 }
 
 function Sheet({ open, onClose, title, children }: { open: boolean; onClose: () => void; title: string; children: React.ReactNode }) {
@@ -325,23 +343,31 @@ function VoiceRecorder({ path, onChange }: { path: string | null; onChange: (p: 
 
   async function start() {
     try {
+      if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
+        setState("error");
+        return;
+      }
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const rec = new MediaRecorder(stream);
       const chunks: Blob[] = [];
-      rec.ondataavailable = (e) => e.data.size && chunks.push(e.data);
+      rec.ondataavailable = (e) => { if (e.data?.size) chunks.push(e.data); };
+      rec.onerror = () => setState("error");
       rec.onstop = async () => {
-        stream.getTracks().forEach((t) => t.stop());
-        const type = rec.mimeType || "audio/webm";
-        const blob = new Blob(chunks, { type });
-        setPreview(URL.createObjectURL(blob));
-        setState("uploading");
-        const { data: u } = await supabase.auth.getUser();
-        if (!u.user) return setState("error");
-        const ext = type.includes("mp4") ? "m4a" : type.includes("ogg") ? "ogg" : "webm";
-        const filePath = `${u.user.id}/${crypto.randomUUID()}.${ext}`;
-        const { error } = await supabase.storage.from("voice-notes").upload(filePath, blob, { contentType: type });
-        if (error) return setState("error");
-        onChange(filePath); setState("idle");
+        try {
+          stream.getTracks().forEach((t) => t.stop());
+          const type = rec.mimeType || "audio/webm";
+          const blob = new Blob(chunks, { type });
+          setPreview(URL.createObjectURL(blob));
+          setState("uploading");
+          const { data: u } = await supabase.auth.getUser();
+          if (!u?.user) { setState("error"); return; }
+          const ext = type.includes("mp4") ? "m4a" : type.includes("ogg") ? "ogg" : "webm";
+          const id = typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+          const filePath = `${u.user.id}/${id}.${ext}`;
+          const { error } = await supabase.storage.from("voice-notes").upload(filePath, blob, { contentType: type });
+          if (error) { setState("error"); return; }
+          onChange(filePath); setState("idle");
+        } catch { setState("error"); }
       };
       recorder.current = rec; setSeconds(0); rec.start(); setState("recording");
     } catch { setState("error"); }
