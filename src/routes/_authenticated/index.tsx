@@ -214,6 +214,7 @@ function Index() {
       </div>
 
       <Sheet open={sheetOpen} onClose={() => setSheetOpen(false)} title={selected.name}>
+        <FormBoundary onReset={() => setSheetOpen(false)}>
         <form onSubmit={submitOrder}>
           <div className="mb-5 flex items-center gap-2">{[1, 2].map((i) => <span key={i} className={`h-1.5 flex-1 rounded-full ${i <= step ? "bg-primary" : "bg-border"}`} />)}</div>
           {step === 1 ? <div className="animate-float-in">
@@ -230,6 +231,7 @@ function Index() {
             <Button type="button" variant="ghost" className="w-full" onClick={() => setStep(1)}>رجوع للقائمة</Button>
           </div>}
         </form>
+        </FormBoundary>
       </Sheet>
 
       <Sheet open={!!tracked} onClose={() => setTracked(null)} title={tracked ? `طلب #${tracked.id.slice(0, 8).toUpperCase()}` : ""}>
