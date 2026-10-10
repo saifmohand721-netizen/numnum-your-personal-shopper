@@ -3,17 +3,21 @@
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 
-// Cloudflare Workers pass variables as the fetch() `env` (stashed by src/server.ts);
-// Node/dev uses process.env. Check both.
+// On Cloudflare Workers, variables/secrets arrive as the Worker `env`, not process.env.
+// The Nitro Cloudflare handler stores it on globalThis.__env__ but calls our server
+// entry with the Request only, so read __env__ directly. Node/dev uses process.env.
 export function getEnv(name: string): string {
-  const rt = (globalThis as { __RUNTIME_ENV__?: Record<string, string> }).__RUNTIME_ENV__;
-  let fromProcess: string | undefined;
+  const g = globalThis as { __env__?: Record<string, unknown>; __RUNTIME_ENV__?: Record<string, string> };
+  const cf = g.__env__?.[name];
+  if (typeof cf === "string" && cf) return cf;
+  const rt = g.__RUNTIME_ENV__?.[name];
+  if (rt) return rt;
   try {
-    fromProcess = typeof process !== "undefined" ? process.env?.[name] : undefined;
+    const v = typeof process !== "undefined" ? process.env?.[name] : undefined;
+    return v || "";
   } catch {
-    fromProcess = undefined;
+    return "";
   }
-  return rt?.[name] || fromProcess || "";
 }
 
 export function getSupabaseUrl() {
