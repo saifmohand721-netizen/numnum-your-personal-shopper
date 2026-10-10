@@ -20,6 +20,59 @@ export function getEnv(name: string): string {
   }
 }
 
+// Collects every place the Worker env can live: the per-request env Nitro stores,
+// our own copy, and the official `cloudflare:workers` module env.
+async function envSources(): Promise<Record<string, unknown>[]> {
+  const g = globalThis as { __env__?: Record<string, unknown>; __RUNTIME_ENV__?: Record<string, unknown> };
+  const out: Record<string, unknown>[] = [];
+  if (g.__env__ && typeof g.__env__ === "object") out.push(g.__env__);
+  if (g.__RUNTIME_ENV__) out.push(g.__RUNTIME_ENV__);
+  try {
+    const spec = "cloudflare:workers";
+    const mod = (await import(/* @vite-ignore */ spec)) as { env?: Record<string, unknown> };
+    if (mod?.env && typeof mod.env === "object") out.push(mod.env);
+  } catch {
+    /* not running on Cloudflare (dev / Node) */
+  }
+  try {
+    if (typeof process !== "undefined" && process.env) out.push(process.env as Record<string, unknown>);
+  } catch {
+    /* ignore */
+  }
+  return out;
+}
+
+// Async env lookup that also understands Cloudflare Secrets Store bindings
+// (objects with an async get()) besides plain string variables/secrets.
+export async function getEnvAsync(...names: string[]): Promise<string> {
+  const sources = await envSources();
+  for (const name of names) {
+    for (const src of sources) {
+      const v = src[name];
+      if (typeof v === "string" && v.trim()) return v.trim();
+      if (v && typeof v === "object" && typeof (v as { get?: unknown }).get === "function") {
+        try {
+          const s = await (v as { get: () => Promise<unknown> }).get();
+          if (typeof s === "string" && s.trim()) return s.trim();
+        } catch (err) {
+          console.error(`[env] Secrets Store binding ${name} could not be read:`, (err as Error)?.message);
+        }
+      }
+    }
+  }
+  return "";
+}
+
+// Names only (never values) of backend-related settings the server can see — for diagnosis.
+async function visibleSettingNames(): Promise<string> {
+  const names = new Set<string>();
+  for (const src of await envSources()) {
+    for (const k of Object.keys(src)) if (/SUPABASE|SECRET|SERVICE|DRIVER/i.test(k)) names.add(k);
+  }
+  return names.size ? [...names].sort().join(", ") : "none";
+}
+
+
 export function getSupabaseUrl() {
   // Public value: fall back to the one inlined at build time (same as the browser uses).
   return getEnv("SUPABASE_URL") || getEnv("VITE_SUPABASE_URL") || import.meta.env["VITE_SUPABASE_URL"] || "";
