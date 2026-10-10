@@ -12,6 +12,7 @@ import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
+import { getPublicSupabaseConfig } from "@/lib/public-config.functions";
 
 function NotFoundComponent() {
   return (
@@ -74,7 +75,17 @@ function ErrorComponent({ error, reset }: ErrorComponentProps) {
 }
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
-  head: () => ({
+  loader: async () => {
+    try {
+      return { sb: await getPublicSupabaseConfig() };
+    } catch {
+      return { sb: null };
+    }
+  },
+  head: ({ loaderData }) => ({
+    scripts: loaderData?.sb?.url
+      ? [{ children: `window.__NUMNUM_SB__=${JSON.stringify(loaderData.sb).replace(/</g, "\\u003c")};` }]
+      : [],
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
