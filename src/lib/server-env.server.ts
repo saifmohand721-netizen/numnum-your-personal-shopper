@@ -97,13 +97,17 @@ export function apikeyFetch(key: string): typeof fetch {
   };
 }
 
-export function createAdminClient() {
-  const url = getSupabaseUrl();
-  // Read from the Worker env (getEnv), not process.env, which is empty on Cloudflare.
+export async function createAdminClient() {
+  const url = (await getEnvAsync("SUPABASE_URL", "VITE_SUPABASE_URL")) || getSupabaseUrl();
+  // Reads the Worker env (plain secret, variable, or Secrets Store binding), not just process.env.
   // Accepts both the legacy service_role JWT and the new sb_secret_ key (see apikeyFetch).
-  const key = (getEnv("SUPABASE_SERVICE_ROLE_KEY") || getEnv("SUPABASE_SECRET_KEY")).trim();
+  const key = await getEnvAsync("SUPABASE_SERVICE_ROLE_KEY", "SUPABASE_SECRET_KEY");
   const missing = [...(!url ? ["SUPABASE_URL"] : []), ...(!key ? ["SUPABASE_SERVICE_ROLE_KEY"] : [])];
-  if (missing.length) throw new Error(`Missing server variable(s): ${missing.join(", ")}`);
+  if (missing.length) {
+    const seen = await visibleSettingNames();
+    console.error(`[env] missing ${missing.join(", ")}; server sees: ${seen}`);
+    throw new Error(`Missing server variable(s): ${missing.join(", ")} — server sees: ${seen}`);
+  }
   return createClient<Database>(url, key, {
     global: { fetch: apikeyFetch(key) },
     auth: { storage: undefined, persistSession: false, autoRefreshToken: false },
