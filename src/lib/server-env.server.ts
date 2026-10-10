@@ -3,14 +3,29 @@
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 
+// Cloudflare Workers pass variables as the fetch() `env` (stashed by src/server.ts);
+// Node/dev uses process.env. Check both.
+export function getEnv(name: string): string {
+  const rt = (globalThis as { __RUNTIME_ENV__?: Record<string, string> }).__RUNTIME_ENV__;
+  let fromProcess: string | undefined;
+  try {
+    fromProcess = typeof process !== "undefined" ? process.env?.[name] : undefined;
+  } catch {
+    fromProcess = undefined;
+  }
+  return rt?.[name] || fromProcess || "";
+}
+
 export function getSupabaseUrl() {
-  return process.env["SUPABASE_URL"] || process.env["VITE_SUPABASE_URL"] || "";
+  // Public value: fall back to the one inlined at build time (same as the browser uses).
+  return getEnv("SUPABASE_URL") || getEnv("VITE_SUPABASE_URL") || import.meta.env["VITE_SUPABASE_URL"] || "";
 }
 export function getSupabasePublishableKey() {
   return (
-    process.env["SUPABASE_PUBLISHABLE_KEY"] ||
-    process.env["VITE_SUPABASE_PUBLISHABLE_KEY"] ||
-    process.env["SUPABASE_ANON_KEY"] ||
+    getEnv("SUPABASE_PUBLISHABLE_KEY") ||
+    getEnv("VITE_SUPABASE_PUBLISHABLE_KEY") ||
+    getEnv("SUPABASE_ANON_KEY") ||
+    import.meta.env["VITE_SUPABASE_PUBLISHABLE_KEY"] ||
     ""
   );
 }

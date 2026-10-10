@@ -44,9 +44,27 @@ function isH3SwallowedErrorBody(body: string): boolean {
   }
 }
 
+// Cloudflare Workers hand variables/secrets to fetch() as `env`, and process.env is
+// often empty there. Copy them where server code can read them.
+function exposeRuntimeEnv(env: unknown) {
+  if (!env || typeof env !== "object") return;
+  const g = globalThis as { __RUNTIME_ENV__?: Record<string, string>; process?: { env?: Record<string, string | undefined> } };
+  const store = (g.__RUNTIME_ENV__ ??= {});
+  for (const [k, v] of Object.entries(env as Record<string, unknown>)) {
+    if (typeof v !== "string") continue;
+    store[k] = v;
+    try {
+      if (g.process?.env && !g.process.env[k]) g.process.env[k] = v;
+    } catch {
+      /* process.env may be read-only */
+    }
+  }
+}
+
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
+      exposeRuntimeEnv(env);
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
       return await normalizeCatastrophicSsrResponse(response);
