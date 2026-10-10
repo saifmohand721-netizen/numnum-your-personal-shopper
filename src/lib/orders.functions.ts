@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { requireAuth as requireSupabaseAuth } from "@/lib/require-auth";
 
 const CUSTOMER_COLUMNS = "id,status,store_type,items_list,purchase_price,delivery_fee,total_price,created_at";
 
@@ -19,7 +19,8 @@ const createOrderInput = z.object({
 });
 
 async function getAdmin() {
-  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { createAdminClient } = await import("@/lib/server-env.server");
+  const supabaseAdmin = createAdminClient();
   return supabaseAdmin;
 }
 
