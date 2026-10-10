@@ -20,13 +20,12 @@ const createOrderInput = z.object({
 
 async function getAdmin() {
   const { createAdminClient } = await import("@/lib/server-env.server");
-  const supabaseAdmin = createAdminClient();
-  return supabaseAdmin;
+  return await createAdminClient();
 }
 
 async function verifyPin(pin: string) {
-  const { getEnv } = await import("@/lib/server-env.server");
-  const expectedPin = getEnv("DRIVER_PIN");
+  const { getEnvAsync } = await import("@/lib/server-env.server");
+  const expectedPin = await getEnvAsync("DRIVER_PIN");
   if (!expectedPin || pin !== expectedPin) throw new Response("Unauthorized", { status: 401 });
 }
 
