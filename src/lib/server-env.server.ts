@@ -46,7 +46,9 @@ export function apikeyFetch(key: string): typeof fetch {
 
 export function createAdminClient() {
   const url = getSupabaseUrl();
-  const key = process.env["SUPABASE_SERVICE_ROLE_KEY"] || process.env["SUPABASE_SECRET_KEY"] || "";
+  // Read from the Worker env (getEnv), not process.env, which is empty on Cloudflare.
+  // Accepts both the legacy service_role JWT and the new sb_secret_ key (see apikeyFetch).
+  const key = (getEnv("SUPABASE_SERVICE_ROLE_KEY") || getEnv("SUPABASE_SECRET_KEY")).trim();
   const missing = [...(!url ? ["SUPABASE_URL"] : []), ...(!key ? ["SUPABASE_SERVICE_ROLE_KEY"] : [])];
   if (missing.length) throw new Error(`Missing server variable(s): ${missing.join(", ")}`);
   return createClient<Database>(url, key, {
