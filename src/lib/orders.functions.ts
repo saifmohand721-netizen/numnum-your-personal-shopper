@@ -24,9 +24,10 @@ async function getAdmin() {
   return supabaseAdmin;
 }
 
-function verifyPin(pin: string) {
-  const expectedPin = process.env["DRIVER_PIN"]!;
-  if (pin !== expectedPin) throw new Response("Unauthorized", { status: 401 });
+async function verifyPin(pin: string) {
+  const { getEnv } = await import("@/lib/server-env.server");
+  const expectedPin = getEnv("DRIVER_PIN");
+  if (!expectedPin || pin !== expectedPin) throw new Response("Unauthorized", { status: 401 });
 }
 
 // Owner is always taken from the verified session, never from request data.
@@ -89,7 +90,7 @@ export const listMyOrders = createServerFn({ method: "GET" })
 export const getDriverOrders = createServerFn({ method: "GET" })
   .inputValidator((value) => driverInput.parse(value))
   .handler(async ({ data }) => {
-    verifyPin(data.pin);
+    await verifyPin(data.pin);
     const admin = await getAdmin();
     const { data: orders, error } = await admin
       .from("orders")
@@ -117,7 +118,7 @@ export const updateDriverOrder = createServerFn({ method: "POST" })
       .parse(value),
   )
   .handler(async ({ data }) => {
-    verifyPin(data.pin);
+    await verifyPin(data.pin);
     const admin = await getAdmin();
     const { data: order, error } = await admin
       .from("orders")
