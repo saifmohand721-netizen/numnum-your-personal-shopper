@@ -3,14 +3,33 @@
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 
+// On Cloudflare Workers, variables/secrets arrive as the Worker `env`, not process.env.
+// The Nitro Cloudflare handler stores it on globalThis.__env__ but calls our server
+// entry with the Request only, so read __env__ directly. Node/dev uses process.env.
+export function getEnv(name: string): string {
+  const g = globalThis as { __env__?: Record<string, unknown>; __RUNTIME_ENV__?: Record<string, string> };
+  const cf = g.__env__?.[name];
+  if (typeof cf === "string" && cf) return cf;
+  const rt = g.__RUNTIME_ENV__?.[name];
+  if (rt) return rt;
+  try {
+    const v = typeof process !== "undefined" ? process.env?.[name] : undefined;
+    return v || "";
+  } catch {
+    return "";
+  }
+}
+
 export function getSupabaseUrl() {
-  return process.env["SUPABASE_URL"] || process.env["VITE_SUPABASE_URL"] || "";
+  // Public value: fall back to the one inlined at build time (same as the browser uses).
+  return getEnv("SUPABASE_URL") || getEnv("VITE_SUPABASE_URL") || import.meta.env["VITE_SUPABASE_URL"] || "";
 }
 export function getSupabasePublishableKey() {
   return (
-    process.env["SUPABASE_PUBLISHABLE_KEY"] ||
-    process.env["VITE_SUPABASE_PUBLISHABLE_KEY"] ||
-    process.env["SUPABASE_ANON_KEY"] ||
+    getEnv("SUPABASE_PUBLISHABLE_KEY") ||
+    getEnv("VITE_SUPABASE_PUBLISHABLE_KEY") ||
+    getEnv("SUPABASE_ANON_KEY") ||
+    import.meta.env["VITE_SUPABASE_PUBLISHABLE_KEY"] ||
     ""
   );
 }
