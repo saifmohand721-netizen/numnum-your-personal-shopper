@@ -8,8 +8,10 @@ let client: SupabaseClient<Database> | undefined;
 
 function getClient(): SupabaseClient<Database> {
   if (!client) {
-    const url = import.meta.env["VITE_SUPABASE_URL"];
-    const key = import.meta.env["VITE_SUPABASE_PUBLISHABLE_KEY"];
+    // Prefer runtime config injected by the server (host variables) over build-time values.
+    const rt = (globalThis as { __NUMNUM_SB__?: { url?: string; key?: string } }).__NUMNUM_SB__;
+    const url = rt?.url || import.meta.env["VITE_SUPABASE_URL"];
+    const key = rt?.key || import.meta.env["VITE_SUPABASE_PUBLISHABLE_KEY"];
     if (!url || !key) throw new Error("Missing VITE_SUPABASE_URL / VITE_SUPABASE_PUBLISHABLE_KEY");
     client = createBrowserClient<Database>(url, key, {
       auth: { flowType: "pkce", detectSessionInUrl: true, persistSession: true, autoRefreshToken: true },
