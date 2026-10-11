@@ -55,3 +55,16 @@ export const getOwnerOverview = createServerFn({ method: "POST" })
 
     return { users, orders: withAudio };
   });
+
+// Ban or unban an account. Banned users cannot sign in or use their session.
+export const setUserBanned = createServerFn({ method: "POST" })
+  .inputValidator((value) => z.object({ password: z.string().min(1).max(128), userId: z.string().uuid(), banned: z.boolean() }).parse(value))
+  .handler(async ({ data }) => {
+    await verifyOwner(data.password);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error } = await supabaseAdmin.auth.admin.updateUserById(data.userId, {
+      ban_duration: data.banned ? "876000h" : "none",
+    });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
