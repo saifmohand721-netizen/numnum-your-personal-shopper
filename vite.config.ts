@@ -41,11 +41,4 @@ export default defineConfig({
     // nitro/vite builds from this
     server: { entry: "server" },
   },
-  // Self-hosted Cloudflare deploy: keep variables set in the Worker dashboard.
-  // Without keep_vars, every `wrangler deploy` wipes plain-text dashboard variables.
-  nitro: {
-    cloudflare: {
-      wrangler: { name: "numnum-your-personal-shopper", keep_vars: true },
-    },
-  },
 });

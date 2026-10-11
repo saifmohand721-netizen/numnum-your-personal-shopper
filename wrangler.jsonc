@@ -1,0 +1,5 @@
+// Merged into the generated Cloudflare Worker config at build time.
+// keep_vars: stop `wrangler deploy` from deleting variables set in the Cloudflare dashboard.
+{
+  "keep_vars": true
+}
