@@ -1,9 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState, type FormEvent } from "react";
-import { Lock, LogOut, Package, RefreshCw, Search, Users } from "lucide-react";
+import { Ban, Lock, LogOut, Package, RefreshCw, Search, ShieldCheck, Users } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { getOwnerOverview } from "@/lib/owner.functions";
+import { getOwnerOverview, setUserBanned } from "@/lib/owner.functions";
 
 export const Route = createFileRoute("/owner")({
   head: () => ({
