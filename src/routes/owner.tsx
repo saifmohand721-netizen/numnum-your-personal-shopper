@@ -44,6 +44,16 @@ function OwnerPage() {
     } finally { setBusy(false); }
   }
 
+  async function toggleBan(userId: string, banned: boolean) {
+    setBusy(true);
+    try {
+      await setUserBanned({ data: { password: active, userId, banned } });
+      await load(active);
+    } catch {
+      setError("تعذّر تنفيذ العملية. جرّب ثانية.");
+    } finally { setBusy(false); }
+  }
+
   const emailById = useMemo(() => new Map((data?.users ?? []).map((u) => [u.id, u.email ?? u.phone ?? "—"])), [data]);
   const term = q.trim().toLowerCase();
   const orders = (data?.orders ?? []).filter((o) => !term || [o.customer_phone, o.items_list, o.delivery_address, o.store_type, emailById.get(o.user_id ?? "")].some((v) => String(v ?? "").toLowerCase().includes(term)));
@@ -124,13 +134,25 @@ function OwnerPage() {
             <article key={u.id} className="rounded-2xl border border-border bg-card p-4 shadow-sm">
               <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
                 <p dir="ltr" className="truncate text-right font-bold">{u.email ?? u.phone ?? "—"}</p>
-                <span className="shrink-0 rounded-full bg-muted px-3 py-1 text-xs font-bold">{u.provider === "google" ? "Google" : "بريد"}</span>
+                <div className="flex shrink-0 items-center gap-1.5">
+                  {u.banned && <span className="rounded-full bg-destructive/10 px-3 py-1 text-xs font-bold text-destructive">محظور</span>}
+                  <span className="rounded-full bg-muted px-3 py-1 text-xs font-bold">{u.provider === "google" ? "Google" : "بريد"}</span>
+                </div>
               </div>
               <div className="mt-2 grid grid-cols-3 gap-2 text-xs text-muted-foreground">
                 <p>التسجيل<br /><span className="text-foreground">{fmt(u.created_at)}</span></p>
                 <p>آخر دخول<br /><span className="text-foreground">{fmt(u.last_sign_in_at)}</span></p>
                 <p>الطلبات<br /><span className="font-black text-primary">{ordersByUser.get(u.id) ?? 0}</span></p>
               </div>
+              <Button
+                variant={u.banned ? "outline" : "destructive"}
+                size="sm"
+                className="mt-3 w-full"
+                disabled={busy}
+                onClick={() => void toggleBan(u.id, !u.banned)}
+              >
+                {u.banned ? <><ShieldCheck className="size-4" />فك الحظر</> : <><Ban className="size-4" />حظر الحساب</>}
+              </Button>
             </article>
           ))
         )}
