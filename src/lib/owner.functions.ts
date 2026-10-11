@@ -20,7 +20,7 @@ export const getOwnerOverview = createServerFn({ method: "POST" })
     await verifyOwner(data.password);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-    const users: { id: string; email: string | null; phone: string | null; provider: string; created_at: string; last_sign_in_at: string | null }[] = [];
+    const users: { id: string; email: string | null; phone: string | null; provider: string; created_at: string; last_sign_in_at: string | null; banned: boolean }[] = [];
     for (let page = 1; page <= 10; page++) {
       const { data: res, error } = await supabaseAdmin.auth.admin.listUsers({ page, perPage: 200 });
       if (error) throw new Error(error.message);
