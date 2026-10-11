@@ -32,6 +32,7 @@ export const getOwnerOverview = createServerFn({ method: "POST" })
           provider: String(u.app_metadata?.provider ?? "email"),
           created_at: u.created_at,
           last_sign_in_at: u.last_sign_in_at ?? null,
+          banned: Boolean((u as { banned_until?: string | null }).banned_until) && new Date((u as { banned_until?: string }).banned_until!).getTime() > Date.now(),
         });
       }
       if (res.users.length < 200) break;
