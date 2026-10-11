@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { requireAuth as requireSupabaseAuth } from "@/lib/require-auth";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 const CUSTOMER_COLUMNS = "id,status,store_type,items_list,purchase_price,delivery_fee,total_price,created_at";
 
@@ -19,13 +19,12 @@ const createOrderInput = z.object({
 });
 
 async function getAdmin() {
-  const { createAdminClient } = await import("@/lib/server-env.server");
-  return await createAdminClient();
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  return supabaseAdmin;
 }
 
 async function verifyPin(pin: string) {
-  const { getEnvAsync } = await import("@/lib/server-env.server");
-  const expectedPin = await getEnvAsync("DRIVER_PIN");
+  const expectedPin = process.env.DRIVER_PIN ?? "";
   // Constant-time compare so timing does not reveal correct digits.
   let diff = !expectedPin || pin.length !== expectedPin.length ? 1 : 0;
   for (let i = 0; i < pin.length; i++) diff |= pin.charCodeAt(i) ^ (expectedPin.charCodeAt(i % (expectedPin.length || 1)) || 0);
