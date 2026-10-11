@@ -26,7 +26,13 @@ async function getAdmin() {
 async function verifyPin(pin: string) {
   const { getEnvAsync } = await import("@/lib/server-env.server");
   const expectedPin = await getEnvAsync("DRIVER_PIN");
-  if (!expectedPin || pin !== expectedPin) throw new Response("Unauthorized", { status: 401 });
+  // Constant-time compare so timing does not reveal correct digits.
+  let diff = !expectedPin || pin.length !== expectedPin.length ? 1 : 0;
+  for (let i = 0; i < pin.length; i++) diff |= pin.charCodeAt(i) ^ (expectedPin.charCodeAt(i % (expectedPin.length || 1)) || 0);
+  if (diff !== 0) {
+    await new Promise((r) => setTimeout(r, 800)); // slows down guessing
+    throw new Response("Unauthorized", { status: 401 });
+  }
 }
 
 // Owner is always taken from the verified session, never from request data.
@@ -34,8 +40,13 @@ export const createOrder = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((value) => createOrderInput.parse(value))
   .handler(async ({ data, context }) => {
-    // قبول مسار البصمة الصوتية مباشرة دون تقييده باشتراط البادئة
-    const voicePath = data.voiceNotePath || null;
+    // Only accept a voice note stored in the caller's own folder, so nobody can
+    // attach another customer's recording and have the driver panel sign it.
+    const rawPath = data.voiceNotePath || null;
+    if (rawPath && (!rawPath.startsWith(`${context.userId}/`) || rawPath.includes(".."))) {
+      throw new Error("Invalid voice note");
+    }
+    const voicePath = rawPath;
     const admin = await getAdmin();
     
     const { data: order, error } = await admin
