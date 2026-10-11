@@ -4,6 +4,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import appIcon from "@/assets/numnum-app-icon.png";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabase";
+import { lovable } from "@/integrations/lovable";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
@@ -51,11 +52,8 @@ function AuthPage() {
 
   async function google() {
     setMsg("");
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: { redirectTo: `${window.location.origin}/auth/callback` },
-    });
-    if (error) setMsg("تعذّر الدخول عبر Google. جرّب مرة ثانية.");
+    const result = await lovable.auth.signInWithOAuth("google", { redirect_uri: window.location.origin });
+    if (result.error) setMsg("تعذّر الدخول عبر Google. جرّب مرة ثانية.");
   }
 
   return (

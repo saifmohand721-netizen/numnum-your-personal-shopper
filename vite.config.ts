@@ -17,7 +17,7 @@ export default defineConfig({
         devOptions: { enabled: false },
         manifest: false,
         workbox: {
-          navigateFallbackDenylist: [/^\/auth\/callback/],
+          navigateFallbackDenylist: [/^\/~oauth/],
           runtimeCaching: [
             {
               urlPattern: ({ request }) => request.mode === "navigate",
