@@ -20,7 +20,7 @@ export const getOwnerOverview = createServerFn({ method: "POST" })
     await verifyOwner(data.password);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-    const users: { id: string; email: string | null; phone: string | null; provider: string; created_at: string; last_sign_in_at: string | null }[] = [];
+    const users: { id: string; email: string | null; phone: string | null; provider: string; created_at: string; last_sign_in_at: string | null; banned: boolean }[] = [];
     for (let page = 1; page <= 10; page++) {
       const { data: res, error } = await supabaseAdmin.auth.admin.listUsers({ page, perPage: 200 });
       if (error) throw new Error(error.message);
@@ -32,6 +32,7 @@ export const getOwnerOverview = createServerFn({ method: "POST" })
           provider: String(u.app_metadata?.provider ?? "email"),
           created_at: u.created_at,
           last_sign_in_at: u.last_sign_in_at ?? null,
+          banned: Boolean((u as { banned_until?: string | null }).banned_until) && new Date((u as { banned_until?: string }).banned_until!).getTime() > Date.now(),
         });
       }
       if (res.users.length < 200) break;
@@ -53,4 +54,17 @@ export const getOwnerOverview = createServerFn({ method: "POST" })
     );
 
     return { users, orders: withAudio };
+  });
+
+// Ban or unban an account. Banned users cannot sign in or use their session.
+export const setUserBanned = createServerFn({ method: "POST" })
+  .inputValidator((value) => z.object({ password: z.string().min(1).max(128), userId: z.string().uuid(), banned: z.boolean() }).parse(value))
+  .handler(async ({ data }) => {
+    await verifyOwner(data.password);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error } = await supabaseAdmin.auth.admin.updateUserById(data.userId, {
+      ban_duration: data.banned ? "876000h" : "none",
+    });
+    if (error) throw new Error(error.message);
+    return { ok: true };
   });
