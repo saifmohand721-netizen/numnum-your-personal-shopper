@@ -146,6 +146,14 @@
     border-color: var(--color-border);
   }
 
+  html, body {
+    overscroll-behavior: none;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
@@ -156,6 +164,17 @@
 
   button, input, textarea, select {
     font: inherit;
+  }
+
+  /* 16px+ stops iOS from zooming into fields — keeps the app-like fixed scale */
+  input, textarea, select {
+    font-size: max(16px, 1em);
+  }
+
+  button, a, img {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
   }
 
   ::selection {
@@ -170,4 +189,26 @@
 
 @utility animate-float-in {
   animation: float-in 420ms ease-out both;
+}
+
+@keyframes intro-pop {
+  0% { opacity: 0; transform: scale(0.6); }
+  70% { opacity: 1; transform: scale(1.06); }
+  100% { opacity: 1; transform: scale(1); }
+}
+@keyframes intro-rise {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@utility animate-intro-pop {
+  animation: intro-pop 600ms cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
+}
+@utility animate-intro-rise {
+  animation: intro-rise 520ms ease-out both;
+}
+@utility bg-intro {
+  background: radial-gradient(120% 80% at 50% 30%, color-mix(in oklab, var(--primary) 14%, var(--background)), var(--background));
+}
+@utility app-screen {
+  min-height: 100dvh;
 }

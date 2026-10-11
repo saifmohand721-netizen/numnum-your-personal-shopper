@@ -67,18 +67,7 @@ function Index() {
   const [error, setError] = useState("");
   const [tracked, setTracked] = useState<TrackedOrder>(null);
   const [myOrders, setMyOrders] = useState<NonNullable<TrackedOrder>[]>([]);
-  const [dismissInstall, setDismissInstall] = useState(false);
-  const deferredInstall = useRef<(Event & { prompt: () => Promise<void> }) | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-
-  useEffect(() => {
-    const handler = (event: Event) => {
-      event.preventDefault();
-      deferredInstall.current = event as Event & { prompt: () => Promise<void> };
-    };
-    window.addEventListener("beforeinstallprompt", handler);
-    return () => window.removeEventListener("beforeinstallprompt", handler);
-  }, []);
 
   useEffect(() => {
     void listMyOrders().then((rows) => setMyOrders(Array.isArray(rows) ? rows : [])).catch(() => {});
@@ -161,12 +150,6 @@ function Index() {
 
   return (
     <main dir="rtl" className="min-h-screen bg-background pb-28">
-      {!dismissInstall && <div className="border-b border-primary/15 bg-surface-warm px-4 py-2.5">
-        <div className="mx-auto grid max-w-2xl grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
-          <p className="min-w-0 text-xs font-medium text-foreground">لطلب أسرع وتجربة أفضل، ثبّت نم نم على شاشتك الرئيسية</p>
-          <div className="flex shrink-0 items-center gap-1"><Button variant="ghost" size="sm" className="text-primary" onClick={() => void deferredInstall.current?.prompt()}>تثبيت</Button><Button variant="ghost" size="icon" aria-label="إغلاق" onClick={() => setDismissInstall(true)}><X /></Button></div>
-        </div>
-      </div>}
 
       <div className="mx-auto max-w-2xl px-4">
         <BrandHeader />
