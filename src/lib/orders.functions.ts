@@ -24,7 +24,7 @@ async function getAdmin() {
 }
 
 async function verifyPin(pin: string) {
-  const expectedPin = process.env.DRIVER_PIN ?? "";
+  const expectedPin = process.env["DRIVER_PIN"] ?? "";
   // Constant-time compare so timing does not reveal correct digits.
   let diff = !expectedPin || pin.length !== expectedPin.length ? 1 : 0;
   for (let i = 0; i < pin.length; i++) diff |= pin.charCodeAt(i) ^ (expectedPin.charCodeAt(i % (expectedPin.length || 1)) || 0);
