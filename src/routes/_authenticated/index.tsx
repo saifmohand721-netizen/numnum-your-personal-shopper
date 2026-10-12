@@ -2,7 +2,6 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Component, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import {
   ArrowLeft,
-  Check,
   ChevronLeft,
   Hammer,
   LogOut,
@@ -17,6 +16,8 @@ import {
 import appIcon from "@/assets/numnum-app-icon.png";
 import { Button } from "@/components/ui/button";
 import { BottomNav } from "@/components/BottomNav";
+import { OrderStepper } from "@/components/OrderStepper";
+import { getStatusLabel } from "@/lib/order-status";
 import { createOrder, listMyOrders, trackOrder } from "@/lib/orders.functions";
 import { supabase } from "@/lib/supabase";
 
@@ -42,13 +43,6 @@ const categories = [
   { id: "pharmacy", name: "الصيدلية والمستلزمات", note: "احتياجاتك الصحية", icon: Pill },
   { id: "custom", name: "طلب خاص", note: "أي شيء آخر تحتاجه", icon: Package },
 ];
-
-const progress = [
-  ["pending", "تم استلام الطلب", "طلبك صار عندنا"],
-  ["buying", "جاري الشراء من المتجر", "مندوبنا يجمع أغراضك"],
-  ["delivering", "نم نم في الطريق إليك", "جهّز نفسك للاستلام"],
-  ["completed", "تم التسليم بنجاح", "بالعافية عليك!"],
-] as const;
 
 type TrackedOrder = Awaited<ReturnType<typeof trackOrder>>;
 
@@ -135,11 +129,10 @@ function Index() {
     }
   }
 
-  const current = tracked ? Math.max(0, progress.findIndex(([status]) => status === tracked.status)) : 0;
   const activeOrders = myOrders.filter((o) => o.status !== "completed");
   const activeOrder = activeOrders[0] ?? null;
   const pastOrders = myOrders.filter((o) => o.status === "completed");
-  const selected = categories.find((c) => c.id === category) ?? categories[0]!;
+  const selected = categories.find((c) => c.id === category) ?? categories[0];
 
   function openOrder(id: string) {
     setCategory(id); setStep(1); setError(""); setSheetOpen(true);
@@ -181,7 +174,7 @@ function Index() {
 
           {activeOrder && <button type="button" onClick={() => setTracked(activeOrder)} className="flex w-full items-center gap-3 rounded-2xl border border-success/30 bg-success/10 p-4 text-right">
             <span className="grid size-10 shrink-0 place-items-center rounded-full bg-success text-success-foreground"><Package className="size-5" /></span>
-            <span className="min-w-0 flex-1"><span className="block text-xs font-bold text-success">طلب نشط</span><span className="block truncate font-extrabold">{progress.find(([s]) => s === activeOrder.status)?.[1]}</span></span>
+            <span className="min-w-0 flex-1"><span className="block text-xs font-bold text-success">طلب نشط</span><span className="block truncate font-extrabold">{getStatusLabel(activeOrder.status)}</span></span>
             <ChevronLeft className="shrink-0 text-success" />
           </button>}
         </div> : <div className="animate-float-in space-y-6 pt-2">
@@ -196,7 +189,7 @@ function Index() {
         </div>}
       </div>
 
-      <Sheet open={sheetOpen} onClose={() => setSheetOpen(false)} title={selected.name}>
+      <Sheet open={sheetOpen} onClose={() => setSheetOpen(false)} title={selected?.name ?? "طلب خاص"}>
         <FormBoundary onReset={() => setSheetOpen(false)}>
         <form onSubmit={submitOrder}>
           <div className="mb-5 flex items-center gap-2">{[1, 2].map((i) => <span key={i} className={`h-1.5 flex-1 rounded-full ${i <= step ? "bg-primary" : "bg-border"}`} />)}</div>
@@ -219,15 +212,7 @@ function Index() {
 
       <Sheet open={!!tracked} onClose={() => setTracked(null)} title={tracked ? `طلب #${tracked.id.slice(0, 8).toUpperCase()}` : ""}>
         {tracked && <div>
-          <div className="space-y-1">
-            {progress.map(([status, title, note], index) => {
-              const done = index <= current;
-              return <div key={status} className="grid grid-cols-[auto_minmax(0,1fr)] gap-4">
-                <div className="flex flex-col items-center"><span className={`grid size-9 place-items-center rounded-full border-2 transition ${done ? "border-success bg-success text-success-foreground" : "border-border bg-background text-muted-foreground"}`}>{done ? <Check className="size-4" /> : index + 1}</span>{index < 3 && <span className={`h-9 w-0.5 ${index < current ? "bg-success" : "bg-border"}`} />}</div>
-                <div className="pt-1"><p className={`font-bold ${done ? "text-foreground" : "text-muted-foreground"}`}>{title}</p><p className="text-sm text-muted-foreground">{note}</p></div>
-              </div>;
-            })}
-          </div>
+          <OrderStepper status={tracked.status} />
           <div className="mt-5 rounded-2xl bg-muted/60 p-4">
             <h3 className="font-extrabold">ملخص الحساب</h3>
             <div className="mt-3 space-y-3 text-sm">
@@ -250,7 +235,7 @@ function OrderList({ title, orders, onOpen }: { title: string; orders: NonNullab
     <h2 className="text-sm font-bold text-muted-foreground">{title}</h2>
     <div className="mt-3 space-y-3">
       {orders.map((order) => {
-        const label = progress.find(([s]) => s === order.status)?.[1] ?? order.status;
+        const label = getStatusLabel(order.status);
         const done = order.status === "completed";
         return <button key={order.id} type="button" onClick={() => onOpen(order)} className="w-full rounded-2xl border border-border bg-card p-4 text-right shadow-sm transition hover:shadow-xl">
           <div className="flex items-center justify-between gap-3"><span className="min-w-0 truncate font-extrabold">{order.store_type}</span><span className={`shrink-0 rounded-full px-3 py-1 text-xs font-bold ${done ? "bg-muted text-muted-foreground" : "bg-success/10 text-success"}`}>{label}</span></div>

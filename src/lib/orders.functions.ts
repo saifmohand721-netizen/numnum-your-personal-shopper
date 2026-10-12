@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { ORDER_STATUSES } from "@/lib/order-status";
 
 const CUSTOMER_COLUMNS = "id,status,store_type,items_list,purchase_price,delivery_fee,total_price,created_at";
 
@@ -120,7 +121,7 @@ export const updateDriverOrder = createServerFn({ method: "POST" })
     driverInput
       .extend({
         id: z.string().uuid(),
-        status: z.enum(["pending", "buying", "delivering", "completed"]),
+        status: z.enum(ORDER_STATUSES),
         purchasePrice: z.number().min(0),
         deliveryFee: z.number().min(0),
       })
