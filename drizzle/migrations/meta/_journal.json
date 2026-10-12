@@ -57,6 +57,13 @@
       "when": 1791846083231,
       "tag": "0007_allow_arrived_order_status",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1791846685844,
+      "tag": "0008_restrict_order_events_to_recent",
+      "breakpoints": true
     }
   ]
 }
