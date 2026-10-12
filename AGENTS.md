@@ -14,3 +14,5 @@
 - Customers sign in (Google/email); orders.user_id is set server-side from the session and RLS limits customers to their own orders — prevents cross-customer leaks. Driver panel stays PIN + server-side admin access.
 - App code imports Supabase via `@/lib/supabase`, a re-export of the generated Lovable Cloud client — one connection, hosted on Lovable, no self-hosted config.
 - Google sign-in uses the Lovable broker (`lovable.auth.signInWithOAuth`) returning to the site origin — required for managed Google auth.
+- Order stages live in a shared browser-safe module used by tracker, driver, owner, and server validation; preserve buying/delivering storage values for existing orders.
+- Driver credentials remembered locally must be verified by the server before rendering private orders and on every read/update; explicit logout clears storage and in-memory orders.

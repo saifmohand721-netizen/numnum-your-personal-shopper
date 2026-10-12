@@ -4,6 +4,7 @@ import { Ban, Lock, LogOut, Package, RefreshCw, Search, ShieldCheck, Users } fro
 
 import { Button } from "@/components/ui/button";
 import { getOwnerOverview, setUserBanned } from "@/lib/owner.functions";
+import { getStatusLabel } from "@/lib/order-status";
 
 export const Route = createFileRoute("/owner")({
   head: () => ({
@@ -21,7 +22,6 @@ export const Route = createFileRoute("/owner")({
 });
 
 type Overview = Awaited<ReturnType<typeof getOwnerOverview>>;
-const statusLabel: Record<string, string> = { pending: "جديد", buying: "قيد الشراء", delivering: "جاري التوصيل", completed: "مكتمل" };
 const fmt = (d: string | null) => (d ? new Date(d).toLocaleString("ar-IQ", { dateStyle: "medium", timeStyle: "short" }) : "—");
 const money = (n: number | null) => `${Number(n ?? 0).toLocaleString("ar-IQ")} د.ع`;
 
@@ -113,7 +113,7 @@ function OwnerPage() {
             <article key={o.id} className="rounded-2xl border border-border bg-card p-4 shadow-sm">
               <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
                 <div className="min-w-0"><p className="truncate font-black">{o.store_type}</p><p className="text-xs text-muted-foreground">{fmt(o.created_at)}</p></div>
-                <span className="shrink-0 rounded-full bg-primary/10 px-3 py-1 text-xs font-bold text-primary">{statusLabel[o.status] ?? o.status}</span>
+                <span className="shrink-0 rounded-full bg-primary/10 px-3 py-1 text-xs font-bold text-primary">{getStatusLabel(o.status)}</span>
               </div>
               <p className="mt-3 whitespace-pre-wrap rounded-xl bg-muted p-3 text-sm leading-6">{o.items_list}</p>
               {o.voice_note_url && <audio controls preload="none" src={o.voice_note_url} className="mt-3 w-full" />}
