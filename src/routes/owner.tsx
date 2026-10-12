@@ -144,17 +144,43 @@ function OwnerPage() {
                 <p>آخر دخول<br /><span className="text-foreground">{fmt(u.last_sign_in_at)}</span></p>
                 <p>الطلبات<br /><span className="font-black text-primary">{ordersByUser.get(u.id) ?? 0}</span></p>
               </div>
-              <Button
-                variant={u.banned ? "outline" : "destructive"}
-                size="sm"
-                className="mt-3 w-full"
-                disabled={busy}
-                onClick={() => void toggleBan(u.id, !u.banned)}
-              >
-                {u.banned ? <><ShieldCheck className="size-4" />فك الحظر</> : <><Ban className="size-4" />حظر الحساب</>}
-              </Button>
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <Button variant="outline" size="sm" onClick={() => { setSelected(u.id); setOpenOrder(null); window.scrollTo(0, 0); }}>
+                  <Eye className="size-4" />عرض الطلبات
+                </Button>
+                <Button
+                  variant={u.banned ? "outline" : "destructive"}
+                  size="sm"
+                  disabled={busy}
+                  onClick={() => void toggleBan(u.id, !u.banned)}
+                >
+                  {u.banned ? <><ShieldCheck className="size-4" />فك الحظر</> : <><Ban className="size-4" />حظر الحساب</>}
+                </Button>
+              </div>
             </article>
           ))
+        )}
+
+        {cleanup && (
+          <section className="rounded-2xl border border-border bg-card p-4 shadow-sm">
+            <h2 className="flex items-center gap-2 font-black"><Trash2 className="size-4 text-primary" />التنظيف التلقائي للطلبات</h2>
+            <p className="mt-1 text-xs text-muted-foreground">تُحذف الطلبات المكتملة تلقائياً كل يوم بعد مرور المدة المحددة على اكتمالها. الطلبات غير المكتملة لا تُحذف.</p>
+            <label className="mt-3 flex items-center gap-2 text-sm font-bold">
+              <input type="checkbox" checked={cleanup.enabled} onChange={(e) => setCleanup({ ...cleanup, enabled: e.target.checked })} className="size-4 accent-primary" />
+              تفعيل الحذف التلقائي
+            </label>
+            <label className="mt-3 flex items-center gap-2 text-sm">
+              الحذف بعد
+              <input type="number" min={1} max={3650} value={cleanup.days} onChange={(e) => setCleanup({ ...cleanup, days: Math.max(1, Math.min(3650, Number(e.target.value) || 1)) })} className="w-20 rounded-lg border border-input bg-background px-2 py-1 text-center" />
+              يوماً من الاكتمال
+            </label>
+            <p className="mt-2 text-xs text-muted-foreground">آخر تنظيف: {fmt(cleanup.lastAt)} {cleanup.lastAt ? `— حُذف ${cleanup.lastCount} طلب` : ""}</p>
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <Button size="sm" disabled={busy} onClick={() => void saveCleanup(false)}>حفظ الإعداد</Button>
+              <Button size="sm" variant="outline" disabled={busy} onClick={() => { if (confirm(`سيتم حذف الطلبات المكتملة الأقدم من ${cleanup.days} يوماً نهائياً. متابعة؟`)) void saveCleanup(true); }}>تنظيف الآن</Button>
+            </div>
+            {notice && <p className="mt-2 text-sm font-bold text-success">{notice}</p>}
+          </section>
         )}
       </div>
     </main>
