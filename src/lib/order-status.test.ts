@@ -1,3 +1,4 @@
+/// <reference types="bun" />
 import { describe, expect, test } from "bun:test";
 import { z } from "zod";
 import { ORDER_STATUSES, getStageIndex } from "./order-status";
