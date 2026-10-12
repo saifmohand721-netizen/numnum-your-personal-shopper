@@ -68,3 +68,30 @@ export const setUserBanned = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { ok: true };
   });
+
+// Auto-cleanup settings: completed orders older than N days are deleted daily.
+export const getCleanupSettings = createServerFn({ method: "POST" })
+  .inputValidator((value) => input.parse(value))
+  .handler(async ({ data }) => {
+    await verifyOwner(data.password);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: s, error } = await supabaseAdmin.from("app_settings").select("*").eq("id", 1).single();
+    if (error) throw new Error(error.message);
+    return { enabled: s.cleanup_enabled, days: s.cleanup_days, lastAt: s.last_cleanup_at, lastCount: s.last_cleanup_count };
+  });
+
+export const saveCleanupSettings = createServerFn({ method: "POST" })
+  .inputValidator((value) => z.object({ password: z.string().min(1).max(128), enabled: z.boolean(), days: z.number().int().min(1).max(3650), runNow: z.boolean().optional() }).parse(value))
+  .handler(async ({ data }) => {
+    await verifyOwner(data.password);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error } = await supabaseAdmin.from("app_settings").update({ cleanup_enabled: data.enabled, cleanup_days: data.days }).eq("id", 1);
+    if (error) throw new Error(error.message);
+    let deleted = 0;
+    if (data.runNow) {
+      const { data: n, error: e } = await supabaseAdmin.rpc("cleanup_old_orders");
+      if (e) throw new Error(e.message);
+      deleted = Number(n ?? 0);
+    }
+    return { ok: true, deleted };
+  });

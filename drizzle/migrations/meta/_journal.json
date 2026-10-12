@@ -64,6 +64,13 @@
       "when": 1791846685844,
       "tag": "0008_restrict_order_events_to_recent",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1791847160088,
+      "tag": "0009_order_auto_cleanup",
+      "breakpoints": true
     }
   ]
 }

@@ -14,6 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      app_settings: {
+        Row: {
+          cleanup_days: number
+          cleanup_enabled: boolean
+          id: number
+          last_cleanup_at: string | null
+          last_cleanup_count: number
+        }
+        Insert: {
+          cleanup_days?: number
+          cleanup_enabled?: boolean
+          id?: number
+          last_cleanup_at?: string | null
+          last_cleanup_count?: number
+        }
+        Update: {
+          cleanup_days?: number
+          cleanup_enabled?: boolean
+          id?: number
+          last_cleanup_at?: string | null
+          last_cleanup_count?: number
+        }
+        Relationships: []
+      }
       order_events: {
         Row: {
           created_at: string
@@ -35,6 +59,7 @@ export type Database = {
       orders: {
         Row: {
           budget_limit: number | null
+          completed_at: string | null
           created_at: string
           customer_phone: string
           delivery_address: string
@@ -50,6 +75,7 @@ export type Database = {
         }
         Insert: {
           budget_limit?: number | null
+          completed_at?: string | null
           created_at?: string
           customer_phone: string
           delivery_address: string
@@ -65,6 +91,7 @@ export type Database = {
         }
         Update: {
           budget_limit?: number | null
+          completed_at?: string | null
           created_at?: string
           customer_phone?: string
           delivery_address?: string
@@ -85,7 +112,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      cleanup_old_orders: { Args: never; Returns: number }
     }
     Enums: {
       [_ in never]: never
