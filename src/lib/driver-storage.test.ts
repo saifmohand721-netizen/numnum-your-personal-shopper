@@ -1,20 +1,20 @@
-/// <reference types="bun" />
-import { expect, test } from "bun:test";
+import { test } from "node:test";
+import { strict as assert } from "node:assert";
 import { forgetDriverPin, readDriverPin, rememberDriverPin } from "./driver-storage";
 
 test("successful credentials survive reopening and explicit logout removes them", () => {
   const values = new Map<string, string>();
   const storage = { getItem: (key: string) => values.get(key) ?? null, setItem: (key: string, value: string) => { values.set(key, value); }, removeItem: (key: string) => { values.delete(key); } };
-  expect(readDriverPin(storage)).toBe("");
+  assert.equal(readDriverPin(storage), "");
   rememberDriverPin(storage, "test-driver-credential");
-  expect(readDriverPin(storage)).toBe("test-driver-credential");
+  assert.equal(readDriverPin(storage), "test-driver-credential");
   forgetDriverPin(storage);
-  expect(readDriverPin(storage)).toBe("");
+  assert.equal(readDriverPin(storage), "");
 });
 
 test("unavailable local storage does not crash login or logout", () => {
   const storage = { getItem: () => { throw Error("blocked"); }, setItem: () => { throw Error("blocked"); }, removeItem: () => { throw Error("blocked"); } };
-  expect(readDriverPin(storage)).toBe("");
-  expect(() => rememberDriverPin(storage, "test-driver-credential")).not.toThrow();
-  expect(() => forgetDriverPin(storage)).not.toThrow();
+  assert.equal(readDriverPin(storage), "");
+  assert.doesNotThrow(() => rememberDriverPin(storage, "test-driver-credential"));
+  assert.doesNotThrow(() => forgetDriverPin(storage));
 });

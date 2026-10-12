@@ -1,17 +1,17 @@
-/// <reference types="bun" />
-import { describe, expect, test } from "bun:test";
+import { describe, test } from "node:test";
+import { strict as assert } from "node:assert";
 import { z } from "zod";
 import { ORDER_STATUSES, getStageIndex } from "./order-status";
 
 describe("order stages", () => {
   test("all five stages retain their ordered position", () => {
-    expect(ORDER_STATUSES).toEqual(["pending", "buying", "delivering", "arrived", "completed"]);
-    expect(getStageIndex("arrived")).toBe(3);
-    expect(getStageIndex("completed")).toBe(4);
+    assert.deepEqual(ORDER_STATUSES, ["pending", "buying", "delivering", "arrived", "completed"]);
+    assert.equal(getStageIndex("arrived"), 3);
+    assert.equal(getStageIndex("completed"), 4);
   });
   test("server status validation accepts arrived and rejects unknown statuses", () => {
     const schema = z.enum(ORDER_STATUSES);
-    expect(schema.parse("arrived")).toBe("arrived");
-    expect(schema.safeParse("unknown").success).toBe(false);
+    assert.equal(schema.parse("arrived"), "arrived");
+    assert.equal(schema.safeParse("unknown").success, false);
   });
 });
