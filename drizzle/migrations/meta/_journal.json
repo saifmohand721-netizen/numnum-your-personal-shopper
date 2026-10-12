@@ -50,6 +50,13 @@
       "when": 1791048107019,
       "tag": "0006_voice_notes_private_read",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1791846083231,
+      "tag": "0007_allow_arrived_order_status",
+      "breakpoints": true
     }
   ]
 }
