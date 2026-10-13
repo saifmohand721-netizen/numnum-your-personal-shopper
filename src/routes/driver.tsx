@@ -81,6 +81,24 @@ function DriverPage() {
   }
 
   useEffect(() => {
+    if (!activePin) return;
+    const channel = supabase
+      .channel("driver-order-alerts")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "order_events" },
+        () => void refresh(activePin),
+      )
+      .subscribe();
+    const fallback = window.setInterval(() => void refresh(activePin), 30000);
+    return () => {
+      window.clearInterval(fallback);
+      void supabase.removeChannel(channel);
+    };
+  }, [activePin]);
+
+  if (restoring) return <main dir="rtl" className="grid min-h-screen place-items-center bg-foreground text-background"><p role="status" className="flex items-center gap-3 font-bold"><RefreshCw className="size-5 animate-spin motion-reduce:animate-none" />جاري التحقق من دخولك...</p></main>;
+
     if (!activePin) return <main dir="rtl" className="min-h-screen bg-foreground pb-28 text-background">
     <div className="fixed inset-0 z-40 grid place-items-center bg-foreground/80 px-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="driver-login-title">
       <section className="w-full max-w-sm animate-float-in rounded-3xl border border-background/10 bg-foreground p-7 shadow-2xl">
