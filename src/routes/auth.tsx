@@ -90,7 +90,11 @@ function AuthPage() {
           return;
         }
         if (!data.user) { setMsg("تعذّر إنشاء الحساب. جرّب مرة ثانية."); return; }
-        setMsg("تم إنشاء الحساب! افتح بريدك واضغط رابط التأكيد ثم سجّل الدخول.");
+        if (data.session) { navigate({ to: "/", replace: true }); return; }
+        // Fallback: if no session came back, sign in directly.
+        const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+        if (signInError) { setMsg("تم إنشاء الحساب! سجّل دخولك الآن."); setMode("in"); return; }
+        navigate({ to: "/", replace: true });
       }
     } finally { setBusy(false); }
   }
