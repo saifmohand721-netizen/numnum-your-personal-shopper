@@ -4,7 +4,7 @@ import { ArrowRight, Ban, Eye, FileDown, Lock, LogOut, Package, RefreshCw, Searc
 
 import { Button } from "@/components/ui/button";
 import { getCleanupSettings, getOwnerOverview, saveCleanupSettings, setUserBanned } from "@/lib/owner.functions";
-import { getStageIndex, getStatusLabel } from "@/lib/order-status";
+import { getStageIndex, getStatusLabel, getStatusTone, sortOrdersForStaff } from "@/lib/order-status";
 import { exportOrdersPdf } from "@/lib/orders-pdf";
 
 export const Route = createFileRoute("/owner")({
@@ -75,7 +75,7 @@ function OwnerPage() {
 
   const emailById = useMemo(() => new Map((data?.users ?? []).map((u) => [u.id, u.email ?? u.phone ?? "—"])), [data]);
   const term = q.trim().toLowerCase();
-  const orders = (data?.orders ?? []).filter((o) => !term || [o.customer_phone, o.items_list, o.delivery_address, o.store_type, emailById.get(o.user_id ?? "")].some((v) => String(v ?? "").toLowerCase().includes(term)));
+  const orders = sortOrdersForStaff(data?.orders ?? []).filter((o) => !term || [o.customer_phone, o.items_list, o.delivery_address, o.store_type, emailById.get(o.user_id ?? "")].some((v) => String(v ?? "").toLowerCase().includes(term)));
   const users = (data?.users ?? []).filter((u) => !term || [u.email, u.phone].some((v) => String(v ?? "").toLowerCase().includes(term)));
   const ordersByUser = useMemo(() => {
     const m = new Map<string, number>();
@@ -167,7 +167,7 @@ function OwnerPage() {
               <article key={o.id} className="rounded-2xl border border-border bg-card shadow-sm">
                 <button type="button" onClick={() => setOpenOrder(openOrder === o.id ? null : o.id)} className="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-2 p-4 text-right">
                   <div className="min-w-0"><p className="truncate font-black">{o.store_type} — {money(o.total_price)}</p><p className="text-xs text-muted-foreground">{fmt(o.created_at)}</p></div>
-                  <span className="shrink-0 rounded-full bg-primary/10 px-3 py-1 text-xs font-bold text-primary">{getStatusLabel(o.status)}</span>
+                  <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-bold ${getStatusTone(o.status).badge}`}>{getStatusLabel(o.status)}</span>
                 </button>
                 {openOrder === o.id && (
                   <div className="border-t border-border p-4 pt-3">
@@ -189,10 +189,10 @@ function OwnerPage() {
         ) : tab === "orders" ? (
           orders.length === 0 ? <p className="py-10 text-center text-muted-foreground">لا توجد طلبات.</p> :
           orders.map((o) => (
-            <article key={o.id} className="rounded-2xl border border-border bg-card p-4 shadow-sm">
+            <article key={o.id} className="relative overflow-hidden rounded-2xl border border-border bg-card p-4 ps-5 shadow-sm"><span aria-hidden className={`absolute inset-y-0 start-0 w-1.5 ${getStatusTone(o.status).bar}`} />
               <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
                 <div className="min-w-0"><p className="truncate font-black">{o.store_type}</p><p className="text-xs text-muted-foreground">{fmt(o.created_at)}</p></div>
-                <span className="shrink-0 rounded-full bg-primary/10 px-3 py-1 text-xs font-bold text-primary">{getStatusLabel(o.status)}</span>
+                <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-bold ${getStatusTone(o.status).badge}`}>{getStatusLabel(o.status)}</span>
               </div>
               <p className="mt-3 whitespace-pre-wrap rounded-xl bg-muted p-3 text-sm leading-6">{o.items_list}</p>
               {o.voice_note_url && <audio controls preload="none" src={o.voice_note_url} className="mt-3 w-full" />}
