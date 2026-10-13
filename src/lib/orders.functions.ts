@@ -7,7 +7,7 @@ const CUSTOMER_COLUMNS = "id,status,store_type,items_list,purchase_price,deliver
 
 const trackingInput = z.object({ id: z.string().uuid() });
 
-const driverInput = z.object({ pin: z.string().min(4).max(64) });
+const driverInput = z.object({ pin: z.string().min(4).max(64), driverId: z.string().uuid() });
 
 // تم تعديل شرط رقم الهاتف ليكون مرناً وقبول الأرقام العراقية بكافة صيغها (07x أو 964x أو +964x)
 const createOrderInput = z.object({
@@ -105,6 +105,8 @@ export const getDriverOrders = createServerFn({ method: "GET" })
     const { data: orders, error } = await admin
       .from("orders")
       .select("*")
+      // Pending orders are open to every driver; claimed orders only to their driver.
+      .or(`status.eq.pending,driver_id.eq.${data.driverId},driver_id.is.null`)
       .order("created_at", { ascending: false })
       .limit(100);
     if (error) throw new Error(error.message);
@@ -136,10 +138,14 @@ export const updateDriverOrder = createServerFn({ method: "POST" })
         status: data.status,
         purchase_price: data.purchasePrice,
         delivery_fee: data.deliveryFee,
+        // Moving past pending claims the order for this driver; back to pending releases it.
+        driver_id: data.status === "pending" ? null : data.driverId,
       })
       .eq("id", data.id)
+      .or(`driver_id.is.null,driver_id.eq.${data.driverId}`)
       .select()
-      .single();
+      .maybeSingle();
     if (error) throw new Error(error.message);
+    if (!order) throw new Error("هذا الطلب استلمه سائق آخر");
     return order;
   });

@@ -13,3 +13,12 @@ export function rememberDriverPin(storage: DriverStorage, pin: string) {
 export function forgetDriverPin(storage: DriverStorage) {
   try { storage.removeItem(DRIVER_STORAGE_KEY); } catch { /* storage may be unavailable */ }
 }
+const DRIVER_ID_KEY = "numnum-driver-id";
+// Stable per-device driver identity used to claim orders.
+export function getDriverId(storage: DriverStorage): string {
+  try {
+    let id = storage.getItem(DRIVER_ID_KEY);
+    if (!id) { id = crypto.randomUUID(); storage.setItem(DRIVER_ID_KEY, id); }
+    return id;
+  } catch { return crypto.randomUUID(); }
+}
