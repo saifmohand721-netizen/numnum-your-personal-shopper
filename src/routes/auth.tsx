@@ -74,9 +74,12 @@ function AuthPage() {
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
-          options: { emailRedirectTo: window.location.origin },
+          options: { emailRedirectTo: window.location.origin, data: { region } },
         });
-        if (error) { setMsg("تعذّر إنشاء الحساب. تأكد من البريد وأن كلمة السر 6 أحرف على الأقل."); return; }
+        if (error) {
+          setMsg(error.message.includes("ستتوفر الخدمة") ? "ستتوفر الخدمة قريباً في منطقتك" : "تعذّر إنشاء الحساب. تأكد من البريد وأن كلمة السر 6 أحرف على الأقل.");
+          return;
+        }
         if (!data.user) { setMsg("تعذّر إنشاء الحساب. جرّب مرة ثانية."); return; }
 
         const { error: profileError } = await supabase.from("profiles").insert({
