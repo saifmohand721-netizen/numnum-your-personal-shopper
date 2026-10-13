@@ -85,6 +85,13 @@
       "when": 1791859827882,
       "tag": "0011_enforce_musayyib_region_on_signup",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1791893658619,
+      "tag": "0012_profiles_trigger_driver_assignment",
+      "breakpoints": true
     }
   ]
 }

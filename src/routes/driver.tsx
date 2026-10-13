@@ -8,7 +8,7 @@ import { getDriverOrders, updateDriverOrder } from "@/lib/orders.functions";
 import type { Tables } from "@/integrations/supabase/types";
 import { supabase } from "@/lib/supabase";
 import { getStatusLabel, orderStages, type OrderStatus } from "@/lib/order-status";
-import { forgetDriverPin, readDriverPin, rememberDriverPin } from "@/lib/driver-storage";
+import { forgetDriverPin, getDriverId, readDriverPin, rememberDriverPin } from "@/lib/driver-storage";
 
 export const Route = createFileRoute("/driver")({
   head: () => ({
@@ -25,6 +25,8 @@ export const Route = createFileRoute("/driver")({
 });
 
 type Order = Tables<"orders">;
+let cachedDriverId = "";
+function driverId() { if (!cachedDriverId) cachedDriverId = getDriverId(window.localStorage); return cachedDriverId; }
 const filters = [["all", "الكل"], ...orderStages.map((stage) => [stage.status, stage.label] as const)];
 
 function DriverPage() {
@@ -48,7 +50,7 @@ function DriverPage() {
       try { saved = readDriverPin(window.localStorage); } catch { /* storage unavailable */ }
       if (!saved) { setRestoring(false); return; }
       try {
-        const data = await getDriverOrders({ data: { pin: saved } });
+        const data = await getDriverOrders({ data: { pin: saved, driverId: driverId() } });
         if (!cancelled) { setOrders(data); setActivePin(saved); setError(""); }
       } catch {
         if (!cancelled) setError("تعذّر استعادة الدخول. أدخل رمزك للمحاولة مجدداً.");
@@ -61,7 +63,7 @@ function DriverPage() {
   async function refresh(pinValue = activePin) {
     if (!pinValue) return;
     try {
-      const data = await getDriverOrders({ data: { pin: pinValue } });
+      const data = await getDriverOrders({ data: { pin: pinValue, driverId: driverId() } });
       setOrders(data);
       setError("");
     } catch { setError("تعذّر تحديث الطلبات. جرّب مرة ثانية."); }
@@ -70,7 +72,7 @@ function DriverPage() {
   async function unlock(event: FormEvent) {
     event.preventDefault(); setLoading(true);
     try {
-      const data = await getDriverOrders({ data: { pin } });
+      const data = await getDriverOrders({ data: { pin, driverId: driverId() } });
       try { rememberDriverPin(window.localStorage, pin); } catch { /* storage unavailable */ }
       setOrders(data); setActivePin(pin); setError("");
     }
@@ -124,9 +126,9 @@ function OrderCard({ order, pin, onSaved }: { order: Order; pin: string; onSaved
   const [saving, setSaving] = useState(false);
   const total = Number(purchase || 0) + Number(fee || 0);
   const [saveError, setSaveError] = useState("");
-  async function save() { setSaving(true); setSaveError(""); try { await updateDriverOrder({ data: { pin, id: order.id, status: status as OrderStatus, purchasePrice: Number(purchase || 0), deliveryFee: Number(fee || 0) } }); onSaved(); } catch { setSaveError("تعذّر حفظ التحديث. جرّب مرة ثانية."); } finally { setSaving(false); } }
+  async function save(nextStatus = status) { setSaving(true); setSaveError(""); try { await updateDriverOrder({ data: { pin, driverId: driverId(), id: order.id, status: nextStatus as OrderStatus, purchasePrice: Number(purchase || 0), deliveryFee: Number(fee || 0) } }); onSaved(); } catch (e) { const m = e instanceof Error ? e.message : ""; setSaveError(m.includes("سائق آخر") ? "هذا الطلب استلمه سائق آخر." : "تعذّر حفظ التحديث. جرّب مرة ثانية."); if (m.includes("سائق آخر")) onSaved(); } finally { setSaving(false); } }
   return <article className="rounded-2xl border border-background/10 bg-background/5 p-5 shadow-xl"><div className="flex items-start justify-between gap-4"><div className="min-w-0"><p className="text-xs text-background/45">#{order.id.slice(0,8).toUpperCase()}</p><h2 className="mt-1 truncate text-lg font-black">{order.store_type}</h2></div><span className="shrink-0 rounded-full bg-primary/15 px-3 py-1 text-xs font-bold text-primary">{getStatusLabel(order.status)}</span></div>
-    <p className="mt-4 whitespace-pre-wrap rounded-xl bg-foreground/60 p-4 text-sm leading-6">{order.items_list}</p>{order.voice_note_url && <div className="mt-3"><p className="mb-1 text-xs font-bold text-background/55">ملاحظة صوتية من الزبون</p><audio controls preload="none" src={order.voice_note_url} className="w-full" /></div>}<p className="mt-3 text-sm text-background/65">{order.delivery_address}</p><p dir="ltr" className="mt-1 text-right text-sm font-bold">{order.customer_phone}</p>
+    {order.status === "pending" && <Button variant="hero" size="lg" className="mt-4 w-full rounded-xl" disabled={saving} onClick={() => void save("buying")}><ShoppingBag />قيد التجهيز — استلم الطلب</Button>}<p className="mt-4 whitespace-pre-wrap rounded-xl bg-foreground/60 p-4 text-sm leading-6">{order.items_list}</p>{order.voice_note_url && <div className="mt-3"><p className="mb-1 text-xs font-bold text-background/55">ملاحظة صوتية من الزبون</p><audio controls preload="none" src={order.voice_note_url} className="w-full" /></div>}<p className="mt-3 text-sm text-background/65">{order.delivery_address}</p><p dir="ltr" className="mt-1 text-right text-sm font-bold">{order.customer_phone}</p>
     <div className="mt-5 grid grid-cols-2 gap-3"><MoneyInput label="سعر المشتريات" value={purchase} setValue={setPurchase} /><MoneyInput label="أجرة التوصيل" value={fee} setValue={setFee} /></div><div className="mt-3 flex items-center justify-between rounded-xl bg-success/15 px-4 py-3"><span className="text-sm font-bold text-success">المجموع للزبون</span><strong>{total.toLocaleString("ar-IQ")} د.ع</strong></div>
     <label className="mt-4 block text-xs font-bold text-background/55">حالة الطلب</label><select aria-label="حالة الطلب" value={status} onChange={(e) => setStatus(e.target.value)} className="mt-2 w-full rounded-xl border border-background/15 bg-foreground px-4 py-3 outline-none focus:border-primary">{orderStages.map((stage) => <option key={stage.status} value={stage.status}>{stage.label}</option>)}</select>{saveError && <p role="alert" className="mt-2 text-sm text-primary">{saveError}</p>}<Button variant="emerald" size="lg" className="mt-4 w-full rounded-xl" disabled={saving} onClick={() => void save()}>{saving ? "جاري الحفظ..." : "حفظ وتحديث الزبون"}</Button>
   </article>;

@@ -64,6 +64,7 @@ export type Database = {
           customer_phone: string
           delivery_address: string
           delivery_fee: number
+          driver_id: string | null
           id: string
           items_list: string
           purchase_price: number
@@ -80,6 +81,7 @@ export type Database = {
           customer_phone: string
           delivery_address: string
           delivery_fee?: number
+          driver_id?: string | null
           id?: string
           items_list: string
           purchase_price?: number
@@ -96,6 +98,7 @@ export type Database = {
           customer_phone?: string
           delivery_address?: string
           delivery_fee?: number
+          driver_id?: string | null
           id?: string
           items_list?: string
           purchase_price?: number
@@ -140,6 +143,7 @@ export type Database = {
     }
     Functions: {
       cleanup_old_orders: { Args: never; Returns: number }
+      username_available: { Args: { _username: string }; Returns: boolean }
     }
     Enums: {
       [_ in never]: never
