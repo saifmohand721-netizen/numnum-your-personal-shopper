@@ -78,6 +78,13 @@
       "when": 1791859784844,
       "tag": "0010_create_profiles",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1791859827882,
+      "tag": "0011_enforce_musayyib_region_on_signup",
+      "breakpoints": true
     }
   ]
 }
