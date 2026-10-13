@@ -1,5 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState, type FormEvent } from "react";
+import { Check } from "lucide-react";
+import { toast } from "sonner";
 
 import appIcon from "@/assets/numnum-app-icon.png";
 import { Button } from "@/components/ui/button";
@@ -61,7 +63,7 @@ function AuthPage() {
         if (error) setMsg("البريد أو كلمة السر غير صحيحة.");
       } else {
         if (region !== "المسيب") {
-          setMsg("ستتوفر الخدمة قريباً في منطقتك");
+          setMsg(region ? "ستتوفر الخدمة قريباً في منطقتك 🛵✨" : "اختر منطقتك أولاً.");
           return;
         }
         const name = fullName.trim();
@@ -71,28 +73,23 @@ function AuthPage() {
         if (!/^[a-z0-9_]{3,30}$/.test(user)) { setMsg("اسم المستخدم: 3 أحرف على الأقل، إنجليزي أو أرقام بدون فراغات."); return; }
         if (phoneDigits.length < 10 || phoneDigits.length > 15) { setMsg("اكتب رقم هاتف صحيح."); return; }
 
+        const { data: free, error: checkError } = await supabase.rpc("username_available", { _username: user });
+        if (checkError) console.error("[signup] username check failed:", checkError);
+        if (free === false) { setMsg("اسم المستخدم هذا محجوز، اختر غيره."); return; }
+
+        // The profile row is created by a database trigger from this metadata,
+        // so it works even before the email is confirmed (no session yet).
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
-          options: { emailRedirectTo: window.location.origin, data: { region } },
+          options: { emailRedirectTo: window.location.origin, data: { region, full_name: name, username: user, phone: phoneDigits } },
         });
         if (error) {
-          setMsg(error.message.includes("ستتوفر الخدمة") ? "ستتوفر الخدمة قريباً في منطقتك" : "تعذّر إنشاء الحساب. تأكد من البريد وأن كلمة السر 6 أحرف على الأقل.");
+          console.error("[signup] failed:", error);
+          setMsg(error.message.includes("ستتوفر الخدمة") ? "ستتوفر الخدمة قريباً في منطقتك" : `تعذّر إنشاء الحساب: ${error.message}`);
           return;
         }
         if (!data.user) { setMsg("تعذّر إنشاء الحساب. جرّب مرة ثانية."); return; }
-
-        const { error: profileError } = await supabase.from("profiles").insert({
-          id: data.user.id,
-          full_name: name,
-          username: user,
-          phone: phoneDigits,
-          region,
-        });
-        if (profileError) {
-          setMsg(profileError.code === "23505" ? "اسم المستخدم هذا محجوز، اختر غيره." : "تعذّر حفظ بيانات الحساب. جرّب مرة ثانية.");
-          return;
-        }
         setMsg("تم إنشاء الحساب! افتح بريدك واضغط رابط التأكيد ثم سجّل الدخول.");
       }
     } finally { setBusy(false); }
@@ -119,10 +116,28 @@ function AuthPage() {
               <input type="text" required maxLength={100} value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="الاسم الكامل" className={inputCls} />
               <input dir="ltr" type="text" required minLength={3} maxLength={30} value={username} onChange={(e) => setUsername(e.target.value)} placeholder="username" className={inputCls} />
               <input dir="ltr" type="tel" required value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="07XXXXXXXXX" className={inputCls} />
-              <select required value={region} onChange={(e) => setRegion(e.target.value)} className={inputCls}>
-                <option value="" disabled>اختر منطقتك — شمال بابل</option>
-                {REGIONS.map((r) => <option key={r} value={r}>{r}</option>)}
-              </select>
+              <fieldset>
+                <legend className="mb-2 text-sm font-bold">اختر منطقتك — شمال بابل</legend>
+                <div role="radiogroup" className="grid grid-cols-2 gap-2">
+                  {REGIONS.map((r) => {
+                    const open = r === "المسيب";
+                    const selected = region === r;
+                    return (
+                      <button key={r} type="button" role="radio" aria-checked={selected}
+                        onClick={() => {
+                          if (open) { setRegion(r); setMsg(""); return; }
+                          setRegion("");
+                          toast("ستتوفر الخدمة قريباً في منطقتك 🛵✨", { description: `نشتغل على الوصول إلى ${r} قريباً.` });
+                        }}
+                        className={`relative flex min-h-20 flex-col items-start justify-between gap-2 rounded-xl border-2 p-3 text-start transition active:scale-[0.97] ${selected ? "border-primary bg-primary/10 shadow-md" : open ? "border-success/40 bg-background hover:border-primary/60" : "border-border bg-muted/40 text-muted-foreground"}`}>
+                        <span className="text-sm font-bold leading-5">{r}</span>
+                        <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${open ? "bg-success/15 text-success" : "bg-muted text-muted-foreground"}`}>{open ? "متاحة الآن 🟢" : "قريباً ⏳"}</span>
+                        {selected && <span className="absolute left-2 top-2 grid size-6 place-items-center rounded-full bg-primary text-primary-foreground"><Check className="size-4" /></span>}
+                      </button>
+                    );
+                  })}
+                </div>
+              </fieldset>
             </>
           )}
           <input dir="ltr" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="email@example.com" className={inputCls} />
