@@ -25,7 +25,7 @@ export async function exportOrdersPdf(account: string, orders: PdfOrder[]) {
   el.style.cssText = "position:fixed;left:-10000px;top:0;width:794px;padding:36px;background:#ffffff;color:#0F172A;font-family:Tajawal,sans-serif;font-size:13px;line-height:1.6";
   el.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #FF5722;padding-bottom:12px">
-      <div><div style="font-size:24px;font-weight:900;color:#FF5722">نم نم</div><div>كشف الطلبات</div></div>
+      <div><div style="font-size:24px;font-weight:900;color:#FF5722">دز</div><div>كشف الطلبات</div></div>
       <div style="text-align:left"><div dir="ltr">${esc(account)}</div><div style="color:#64748b">${date(new Date().toISOString())}</div></div>
     </div>
     <p style="margin:12px 0">عدد الطلبات: <b>${orders.length}</b> — المجموع الكلي: <b style="color:#FF5722">${money(total)}</b></p>
@@ -58,7 +58,7 @@ export async function exportOrdersPdf(account: string, orders: PdfOrder[]) {
       if (page > 0) pdf.addPage();
       pdf.addImage(slice.toDataURL("image/jpeg", 0.92), "JPEG", 0, 0, pw, (slice.height * pw) / canvas.width);
     }
-    pdf.save(`numnum-orders-${account.replace(/[^\w.-]+/g, "_")}.pdf`);
+    pdf.save(`diz-orders-${account.replace(/[^\w.-]+/g, "_")}.pdf`);
   } finally {
     el.remove();
   }

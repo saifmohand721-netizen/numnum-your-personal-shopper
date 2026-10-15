@@ -2,3 +2,4 @@
 - [x] Add five persistent tracker stages including arrived, with compatible server/database validation.
 - [x] Remember verified driver login and clear it on logout.
 - [x] Run targeted tests and verify the live experience.
+- [x] Rebrand the app to دز (Diz) with a new orange logo, keeping all colours unchanged.
