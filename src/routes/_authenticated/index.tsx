@@ -13,7 +13,7 @@ import {
   X,
 } from "lucide-react";
 
-import appIcon from "@/assets/numnum-app-icon.png";
+import appIcon from "@/assets/diz-app-icon.png";
 import { Button } from "@/components/ui/button";
 import { BottomNav } from "@/components/BottomNav";
 import { OrderStepper } from "@/components/OrderStepper";
@@ -24,9 +24,9 @@ import { supabase } from "@/lib/supabase";
 export const Route = createFileRoute("/_authenticated/")({
   head: () => ({
     meta: [
-      { title: "نم نم — نشتري ونوصل لك أي شيء" },
-      { name: "description", content: "اطلب أغراضك من أي متجر، ونم نم يشتريها ويوصلها لباب بيتك." },
-      { property: "og:title", content: "نم نم — نشتري ونوصل لك أي شيء" },
+      { title: "دز — نشتري ونوصل لك أي شيء" },
+      { name: "description", content: "اطلب أغراضك من أي متجر، ودز يشتريها ويوصلها لباب بيتك." },
+      { property: "og:title", content: "دز — نشتري ونوصل لك أي شيء" },
       { property: "og:description", content: "خدمة شراء وتوصيل شخصية سريعة وموثوقة." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -203,7 +203,7 @@ function Index() {
             <div><label className="text-sm font-extrabold">رقم الهاتف للتأكيد</label><div className="mt-2 grid grid-cols-[auto_minmax(0,1fr)] overflow-hidden rounded-xl border border-input bg-background focus-within:border-primary focus-within:ring-4 focus-within:ring-primary/10"><span dir="ltr" className="flex items-center gap-2 border-l border-input px-3 font-bold">🇮🇶 +964</span><input dir="ltr" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="7XX XXX XXXX" className="min-w-0 px-4 py-3 outline-none" /></div></div>
             <div><label className="text-sm font-extrabold">الحد الأعلى للمشتريات <span className="font-normal text-muted-foreground">(اختياري)</span></label><div className="mt-2 flex items-center rounded-xl border border-input bg-background px-4 focus-within:border-primary focus-within:ring-4 focus-within:ring-primary/10"><input dir="ltr" inputMode="numeric" value={budget} onChange={(e) => setBudget(e.target.value)} placeholder="50,000" className="min-w-0 flex-1 py-3 outline-none" /><span className="font-bold text-muted-foreground">د.ع</span></div></div>
             {error && <p role="alert" className="rounded-xl bg-destructive/10 px-4 py-3 text-sm font-bold text-destructive">{error}</p>}
-            <Button variant="hero" size="xl" className="w-full" disabled={sending}>{sending ? "جاري إرسال طلبك..." : "تأكيد وإرسال الطلب لـ نم نم"}<ArrowLeft /></Button>
+            <Button variant="hero" size="xl" className="w-full" disabled={sending}>{sending ? "جاري إرسال طلبك..." : "تأكيد وإرسال الطلب لـ دز"}<ArrowLeft /></Button>
             <Button type="button" variant="ghost" className="w-full" onClick={() => setStep(1)}>رجوع للقائمة</Button>
           </div>}
         </form>
@@ -289,7 +289,7 @@ function BrandHeader() {
     navigate({ to: "/auth", replace: true });
   }
   return <header className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 py-4 sm:flex sm:justify-between">
-    <Link to="/" className="flex min-w-0 items-center gap-3"><img src={appIcon} alt="" width={48} height={48} className="size-12 shrink-0 rounded-xl shadow-sm" /><div className="min-w-0"><p className="truncate text-2xl font-black text-primary">نم نم</p><p className="truncate text-xs font-medium text-muted-foreground">نشتري ونوصل لك أي شيء</p></div></Link>
+    <Link to="/" className="flex min-w-0 items-center gap-3"><img src={appIcon} alt="" width={48} height={48} className="size-12 shrink-0 rounded-xl shadow-sm" /><div className="min-w-0"><p className="truncate text-2xl font-black text-primary">دز</p><p className="truncate text-xs font-medium text-muted-foreground">نشتري ونوصل لك أي شيء</p></div></Link>
     <div className="flex shrink-0 items-center gap-2"><span className="hidden items-center gap-2 rounded-full border border-border bg-card px-3 py-2 text-xs font-bold shadow-sm sm:flex"><MapPin className="size-4 text-primary" />توصيل إلى: منطقتك الحالية</span><Button variant="ghost" size="icon" aria-label="تسجيل الخروج" title="تسجيل الخروج" onClick={() => void signOut()}><LogOut /></Button></div>
   </header>;
 }

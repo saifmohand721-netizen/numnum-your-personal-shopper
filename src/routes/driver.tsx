@@ -13,9 +13,9 @@ import { forgetDriverPin, getDriverId, readDriverPin, rememberDriverPin } from "
 export const Route = createFileRoute("/driver")({
   head: () => ({
     meta: [
-      { title: "لوحة السائق — نم نم" },
-      { name: "description", content: "لوحة إدارة وتتبع طلبات نم نم للسائقين." },
-      { property: "og:title", content: "لوحة السائق — نم نم" },
+      { title: "لوحة السائق — دز" },
+      { name: "description", content: "لوحة إدارة وتتبع طلبات دز للسائقين." },
+      { property: "og:title", content: "لوحة السائق — دز" },
       { property: "og:description", content: "إدارة طلبات الشراء والتوصيل النشطة." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },

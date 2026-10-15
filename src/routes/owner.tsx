@@ -10,10 +10,10 @@ import { exportOrdersPdf } from "@/lib/orders-pdf";
 export const Route = createFileRoute("/owner")({
   head: () => ({
     meta: [
-      { title: "لوحة المالك — نم نم" },
-      { name: "description", content: "لوحة خاصة بمالك نم نم." },
-      { property: "og:title", content: "لوحة المالك — نم نم" },
-      { property: "og:description", content: "لوحة خاصة بمالك نم نم." },
+      { title: "لوحة المالك — دز" },
+      { name: "description", content: "لوحة خاصة بمالك دز." },
+      { property: "og:title", content: "لوحة المالك — دز" },
+      { property: "og:description", content: "لوحة خاصة بمالك دز." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
       { name: "robots", content: "noindex, nofollow" },

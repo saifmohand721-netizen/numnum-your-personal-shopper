@@ -3,7 +3,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { Check } from "lucide-react";
 import { toast } from "sonner";
 
-import appIcon from "@/assets/numnum-app-icon.png";
+import appIcon from "@/assets/diz-app-icon.png";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabase";
 import { lovable } from "@/integrations/lovable";
@@ -11,9 +11,9 @@ import { lovable } from "@/integrations/lovable";
 export const Route = createFileRoute("/auth")({
   head: () => ({
     meta: [
-      { title: "تسجيل الدخول — نم نم" },
-      { name: "description", content: "سجّل دخولك إلى نم نم لطلب ومتابعة طلباتك بأمان." },
-      { property: "og:title", content: "تسجيل الدخول — نم نم" },
+      { title: "تسجيل الدخول — دز" },
+      { name: "description", content: "سجّل دخولك إلى دز لطلب ومتابعة طلباتك بأمان." },
+      { property: "og:title", content: "تسجيل الدخول — دز" },
       { property: "og:description", content: "حسابك الخاص لطلبات الشراء والتوصيل." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
@@ -110,7 +110,7 @@ function AuthPage() {
       <div className="w-full max-w-md animate-float-in rounded-2xl border border-border bg-card p-6 shadow-xl sm:p-8">
         <div className="flex items-center gap-3">
           <img src={appIcon} alt="" width={56} height={56} className="size-14 rounded-xl shadow-sm" />
-          <div><h1 className="text-2xl font-black text-primary">نم نم</h1><p className="text-sm text-muted-foreground">{mode === "in" ? "أهلاً بعودتك! سجّل دخولك" : "أنشئ حسابك الخاص"}</p></div>
+          <div><h1 className="text-2xl font-black text-primary">دز</h1><p className="text-sm text-muted-foreground">{mode === "in" ? "أهلاً بعودتك! سجّل دخولك" : "أنشئ حسابك الخاص"}</p></div>
         </div>
         <Button type="button" variant="outline" size="lg" className="mt-7 w-full rounded-xl" onClick={() => void google()}>المتابعة باستخدام Google</Button>
         <div className="my-5 flex items-center gap-3 text-xs text-muted-foreground"><span className="h-px flex-1 bg-border" />أو<span className="h-px flex-1 bg-border" /></div>
