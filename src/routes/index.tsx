@@ -38,13 +38,14 @@ function Welcome() {
 
         <div className="mt-7 grid flex-1 content-start gap-4 sm:grid-cols-2">
           <RoleCard
-            to="/home"
+            to="/auth"
+            search={{ mode: "up" }}
             img={customerImg}
             alt="زبون يستلم طلبه عند باب البيت"
             icon={<ShoppingBag className="size-5" />}
             title="زبون"
-            desc="اطلب أغراضك من أي متجر، ودز يشتريها ويوصلها لباب بيتك"
-            cta="تصفح واطلب الآن"
+            desc="أنشئ حسابك بدقائق، اطلب أغراضك من أي متجر ودز يوصلها لباب بيتك"
+            cta="أنشئ حسابك واطلب"
             primary
           />
           <RoleCard
