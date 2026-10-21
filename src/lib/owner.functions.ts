@@ -45,6 +45,13 @@ export const getOwnerOverview = createServerFn({ method: "POST" })
       .limit(500);
     if (error) throw new Error(error.message);
 
+    // Profile details (name, username, region, role) enrich each account card.
+    const { data: profiles, error: profilesError } = await supabaseAdmin
+      .from("profiles")
+      .select("id,full_name,username,phone,region,role,is_verified,created_at");
+    if (profilesError) throw new Error(profilesError.message);
+    const profileById = new Map((profiles ?? []).map((p) => [p.id, p]));
+
     const withAudio = await Promise.all(
       orders.map(async (o) => {
         if (!o.voice_note_url) return o;
@@ -53,7 +60,7 @@ export const getOwnerOverview = createServerFn({ method: "POST" })
       }),
     );
 
-    return { users, orders: withAudio };
+    return { users: users.map((u) => ({ ...u, profile: profileById.get(u.id) ?? null })), orders: withAudio };
   });
 
 // Driver accounts: profile fields plus per-driver completed deliveries and
