@@ -1,13 +1,10 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { ORDER_STATUSES } from "@/lib/order-status";
 
 const CUSTOMER_COLUMNS = "id,status,store_type,items_list,purchase_price,delivery_fee,total_price,created_at";
 
 const trackingInput = z.object({ id: z.string().uuid() });
-
-const driverInput = z.object({ pin: z.string().min(4).max(64), driverId: z.string().uuid() });
 
 // تم تعديل شرط رقم الهاتف ليكون مرناً وقبول الأرقام العراقية بكافة صيغها (07x أو 964x أو +964x)
 const createOrderInput = z.object({
@@ -22,17 +19,6 @@ const createOrderInput = z.object({
 async function getAdmin() {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   return supabaseAdmin;
-}
-
-async function verifyPin(pin: string) {
-  const expectedPin = process.env["DRIVER_PIN"] ?? "";
-  // Constant-time compare so timing does not reveal correct digits.
-  let diff = !expectedPin || pin.length !== expectedPin.length ? 1 : 0;
-  for (let i = 0; i < pin.length; i++) diff |= pin.charCodeAt(i) ^ (expectedPin.charCodeAt(i % (expectedPin.length || 1)) || 0);
-  if (diff !== 0) {
-    await new Promise((r) => setTimeout(r, 800)); // slows down guessing
-    throw new Response("Unauthorized", { status: 401 });
-  }
 }
 
 // Owner is always taken from the verified session, never from request data.
@@ -97,55 +83,5 @@ export const listMyOrders = createServerFn({ method: "GET" })
     return orders;
   });
 
-export const getDriverOrders = createServerFn({ method: "GET" })
-  .inputValidator((value) => driverInput.parse(value))
-  .handler(async ({ data }) => {
-    await verifyPin(data.pin);
-    const admin = await getAdmin();
-    const { data: orders, error } = await admin
-      .from("orders")
-      .select("*")
-      // Pending orders are open to every driver; claimed orders only to their driver.
-      .or(`status.eq.pending,driver_id.eq.${data.driverId},driver_id.is.null`)
-      .order("created_at", { ascending: false })
-      .limit(100);
-    if (error) throw new Error(error.message);
-    // Bucket is private: hand the driver short-lived signed links only.
-    return Promise.all(orders.map(async (order) => {
-      if (!order.voice_note_url) return order;
-      const { data: signed } = await admin.storage.from("voice-notes").createSignedUrl(order.voice_note_url, 3600);
-      return { ...order, voice_note_url: signed?.signedUrl ?? null };
-    }));
-  });
-
-export const updateDriverOrder = createServerFn({ method: "POST" })
-  .inputValidator((value) =>
-    driverInput
-      .extend({
-        id: z.string().uuid(),
-        status: z.enum(ORDER_STATUSES),
-        purchasePrice: z.number().min(0),
-        deliveryFee: z.number().min(0),
-      })
-      .parse(value),
-  )
-  .handler(async ({ data }) => {
-    await verifyPin(data.pin);
-    const admin = await getAdmin();
-    const { data: order, error } = await admin
-      .from("orders")
-      .update({
-        status: data.status,
-        purchase_price: data.purchasePrice,
-        delivery_fee: data.deliveryFee,
-        // Moving past pending claims the order for this driver; back to pending releases it.
-        driver_id: data.status === "pending" ? null : data.driverId,
-      })
-      .eq("id", data.id)
-      .or(`driver_id.is.null,driver_id.eq.${data.driverId}`)
-      .select()
-      .maybeSingle();
-    if (error) throw new Error(error.message);
-    if (!order) throw new Error("هذا الطلب استلمه سائق آخر");
-    return order;
-  });
+// Driver-facing order functions live in src/lib/driver.functions.ts and are
+// gated by the verified-driver profile check.
