@@ -65,8 +65,9 @@ function Welcome() {
   );
 }
 
-function RoleCard({ to, img, alt, icon, title, desc, cta, primary }: {
+function RoleCard({ to, search, img, alt, icon, title, desc, cta, primary }: {
   to: string;
+  search?: Record<string, string>;
   img: string;
   alt: string;
   icon: React.ReactNode;
@@ -78,6 +79,7 @@ function RoleCard({ to, img, alt, icon, title, desc, cta, primary }: {
   return (
     <Link
       to={to}
+      search={search}
       className="group relative block min-h-72 overflow-hidden rounded-3xl border border-background/10 shadow-2xl transition duration-300 hover:-translate-y-1 hover:shadow-primary/20 active:scale-[0.98] sm:min-h-96"
     >
       <img src={img} alt={alt} className="absolute inset-0 size-full object-cover transition duration-500 group-hover:scale-105" />
