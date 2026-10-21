@@ -1,14 +1,14 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useState, type FormEvent } from "react";
-import { Check, LogOut, Package, RefreshCw, Search, ShoppingBag, Truck } from "lucide-react";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { Check, Lock, LogOut, Package, RefreshCw, Search, ShoppingBag, Truck, WifiOff } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { BottomNav } from "@/components/BottomNav";
-import { getDriverOrders, updateDriverOrder } from "@/lib/orders.functions";
+import { activateDriver, getDriverOrders, getDriverState, setDriverOnline } from "@/lib/driver.functions";
+import { updateDriverOrder } from "@/lib/driver.functions";
 import type { Tables } from "@/integrations/supabase/types";
 import { supabase } from "@/lib/supabase";
 import { getStatusLabel, getStatusTone, orderStages, sortOrdersForStaff, type OrderStatus } from "@/lib/order-status";
-import { forgetDriverPin, getDriverId, readDriverPin, rememberDriverPin } from "@/lib/driver-storage";
 
 export const Route = createFileRoute("/driver")({
   head: () => ({
@@ -19,107 +19,196 @@ export const Route = createFileRoute("/driver")({
       { property: "og:description", content: "إدارة طلبات الشراء والتوصيل النشطة." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
+      { name: "robots", content: "noindex, nofollow" },
     ],
   }),
   component: DriverPage,
 });
 
 type Order = Tables<"orders">;
-let cachedDriverId = "";
-function driverId() { if (!cachedDriverId) cachedDriverId = getDriverId(window.localStorage); return cachedDriverId; }
+type Stage = "loading" | "guest" | "not-driver" | "locked" | "ready";
+type Profile = Awaited<ReturnType<typeof getDriverState>>;
+
 const filters = [["all", "الكل"], ...orderStages.map((stage) => [stage.status, stage.label] as const)];
 
 function DriverPage() {
-  const [pin, setPin] = useState("");
-  const [activePin, setActivePin] = useState("");
+  const navigate = useNavigate();
+  const [stage, setStage] = useState<Stage>("loading");
+  const [profile, setProfile] = useState<Profile>(null);
   const [orders, setOrders] = useState<Order[]>([]);
   const [filter, setFilter] = useState("all");
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [restoring, setRestoring] = useState(true);
+  const [pin, setPin] = useState("");
+  const [busy, setBusy] = useState(false);
 
-  function logout() {
-    try { forgetDriverPin(window.localStorage); } catch { /* storage unavailable */ }
-    setActivePin(""); setPin(""); setOrders([]); setError("");
-  }
-
-  useEffect(() => {
-    let cancelled = false;
-    async function restore() {
-      let saved = "";
-      try { saved = readDriverPin(window.localStorage); } catch { /* storage unavailable */ }
-      if (!saved) { setRestoring(false); return; }
-      try {
-        const data = await getDriverOrders({ data: { pin: saved, driverId: driverId() } });
-        if (!cancelled) { setOrders(data); setActivePin(saved); setError(""); }
-      } catch {
-        if (!cancelled) setError("تعذّر استعادة الدخول. أدخل رمزك للمحاولة مجدداً.");
-      } finally { if (!cancelled) setRestoring(false); }
-    }
-    void restore();
-    return () => { cancelled = true; };
-  }, []);
-
-  async function refresh(pinValue = activePin) {
-    if (!pinValue) return;
+  const refresh = useCallback(async () => {
     try {
-      const data = await getDriverOrders({ data: { pin: pinValue, driverId: driverId() } });
+      const data = await getDriverOrders();
       setOrders(data);
       setError("");
     } catch { setError("تعذّر تحديث الطلبات. جرّب مرة ثانية."); }
-  }
-
-  async function unlock(event: FormEvent) {
-    event.preventDefault(); setLoading(true);
-    try {
-      const data = await getDriverOrders({ data: { pin, driverId: driverId() } });
-      try { rememberDriverPin(window.localStorage, pin); } catch { /* storage unavailable */ }
-      setOrders(data); setActivePin(pin); setError("");
-    }
-    catch { setError("رمز الدخول غير صحيح."); }
-    finally { setLoading(false); }
-  }
+  }, []);
 
   useEffect(() => {
-    if (!activePin) return;
+    let cancelled = false;
+    async function boot() {
+      const { data } = await supabase.auth.getUser();
+      if (!data.user) { if (!cancelled) setStage("guest"); return; }
+      try {
+        const p = await getDriverState();
+        if (cancelled) return;
+        if (!p || p.role !== "driver") { setStage("not-driver"); return; }
+        setProfile(p);
+        setStage(p.is_verified ? "ready" : "locked");
+      } catch {
+        if (!cancelled) setStage("guest");
+      }
+    }
+    void boot();
+    return () => { cancelled = true; };
+  }, []);
+
+  const online = !!profile?.is_online;
+
+  // Live orders only flow while the driver is online.
+  useEffect(() => {
+    if (stage !== "ready" || !online) { setOrders([]); return; }
+    void refresh();
     const channel = supabase
       .channel("driver-order-alerts")
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "order_events" },
-        () => void refresh(activePin),
+        () => void refresh(),
       )
       .subscribe();
-    const fallback = window.setInterval(() => void refresh(activePin), 30000);
+    const fallback = window.setInterval(() => void refresh(), 30000);
     return () => {
       window.clearInterval(fallback);
       void supabase.removeChannel(channel);
     };
-  }, [activePin]);
+  }, [stage, online, refresh]);
 
-  if (restoring) return <main dir="rtl" className="grid min-h-screen place-items-center bg-foreground text-background"><p role="status" className="flex items-center gap-3 font-bold"><RefreshCw className="size-5 animate-spin motion-reduce:animate-none" />جاري التحقق من دخولك...</p></main>;
+  async function unlock(event: FormEvent) {
+    event.preventDefault();
+    setBusy(true); setError("");
+    try {
+      await activateDriver({ data: { pin } });
+      const p = await getDriverState();
+      setProfile(p);
+      setStage("ready");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "رمز التفعيل غير صحيح");
+    } finally { setBusy(false); }
+  }
 
-    if (!activePin) return <main dir="rtl" className="min-h-screen bg-foreground pb-28 text-background">
-    <div className="fixed inset-0 z-40 grid place-items-center bg-foreground/80 px-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="driver-login-title">
-      <section className="w-full max-w-sm animate-float-in rounded-3xl border border-background/10 bg-foreground p-7 shadow-2xl">
+  async function toggleOnline() {
+    setBusy(true);
+    try {
+      await setDriverOnline({ data: { online: !online } });
+      setProfile((p) => (p ? { ...p, is_online: !online } : p));
+    } catch { setError("تعذّر تغيير حالة الاتصال. جرّب ثانية."); }
+    finally { setBusy(false); }
+  }
+
+  async function logout() {
+    await supabase.auth.signOut();
+    navigate({ to: "/", replace: true });
+  }
+
+  if (stage === "loading") {
+    return <main dir="rtl" className="grid min-h-screen place-items-center bg-foreground text-background"><p role="status" className="flex items-center gap-3 font-bold"><RefreshCw className="size-5 animate-spin motion-reduce:animate-none" />جاري التحقق من حسابك...</p></main>;
+  }
+
+  if (stage === "guest") {
+    return <main dir="rtl" className="grid min-h-screen place-items-center bg-foreground px-4 text-background">
+      <section className="w-full max-w-sm animate-float-in rounded-3xl border border-background/10 p-7 text-center shadow-2xl">
         <div className="mx-auto grid size-14 place-items-center rounded-2xl bg-primary text-primary-foreground"><Truck /></div>
-        <h1 id="driver-login-title" className="mt-5 text-center text-2xl font-black">دخول لوحة السائق</h1>
-        <p className="mt-2 text-center text-sm text-background/60">أدخل رمزك الخاص مرة وحدة، وراح نتذكرك بعدين</p>
-        <form onSubmit={unlock} className="mt-6"><label className="sr-only" htmlFor="pin">رمز السائق</label><input id="pin" type="password" inputMode="numeric" autoComplete="one-time-code" autoFocus value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 6))} className="w-full rounded-2xl border border-background/15 bg-background/5 px-4 py-4 text-center text-2xl tracking-[0.5em] outline-none focus:border-primary" placeholder="••••••" />{error && <p role="alert" className="mt-3 text-center text-sm font-bold text-primary">{error}</p>}<Button variant="hero" size="xl" className="mt-5 w-full" disabled={loading || pin.length === 0}>{loading ? "جاري التحقق..." : "دخول اللوحة"}</Button><Button variant="ghost" className="mt-2 w-full text-background/70 hover:bg-background/10 hover:text-background" asChild><Link to="/">العودة للرئيسية</Link></Button></form>
+        <h1 className="mt-5 text-2xl font-black">لوحة السائق</h1>
+        <p className="mt-2 text-sm text-background/60">سجّل دخولك بحساب السائق حتى تكدر تستلم الطلبات</p>
+        <Button variant="hero" size="xl" className="mt-6 w-full" asChild><Link to="/driver-auth">دخول / تسجيل سائق</Link></Button>
+        <Button variant="ghost" className="mt-2 w-full text-background/70 hover:bg-background/10 hover:text-background" asChild><Link to="/">العودة للرئيسية</Link></Button>
       </section>
-    </div>
-    <BottomNav active="driver" dark />
-  </main>;
+    </main>;
+  }
+
+  if (stage === "not-driver") {
+    return <main dir="rtl" className="grid min-h-screen place-items-center bg-foreground px-4 text-background">
+      <section className="w-full max-w-sm animate-float-in rounded-3xl border border-background/10 p-7 text-center shadow-2xl">
+        <div className="mx-auto grid size-14 place-items-center rounded-2xl bg-destructive text-destructive-foreground"><Lock /></div>
+        <h1 className="mt-5 text-2xl font-black">هذا الحساب ليس حساب سائق</h1>
+        <p className="mt-2 text-sm text-background/60">حسابك الحالي حساب زبون. سجّل خروج وادخل بحساب السائق، أو أنشئ حساب سائق جديد.</p>
+        <Button variant="hero" size="xl" className="mt-6 w-full" onClick={() => void logout()}>تسجيل الخروج</Button>
+        <Button variant="ghost" className="mt-2 w-full text-background/70 hover:bg-background/10 hover:text-background" asChild><Link to="/">العودة للرئيسية</Link></Button>
+      </section>
+    </main>;
+  }
+
+  if (stage === "locked") {
+    return <main dir="rtl" className="grid min-h-screen place-items-center bg-foreground px-4 text-background">
+      <section className="w-full max-w-sm animate-float-in rounded-3xl border border-background/10 p-7 text-center shadow-2xl">
+        <div className="mx-auto grid size-14 place-items-center rounded-2xl bg-primary text-primary-foreground"><Lock /></div>
+        <h1 className="mt-5 text-2xl font-black">حسابك قيد التفعيل</h1>
+        <p className="mt-2 text-sm text-background/60">يرجى إدخال رمز التفعيل الخاص بالسائقين — تحصل عليه من إدارة دز</p>
+        <form onSubmit={unlock} className="mt-6">
+          <label className="sr-only" htmlFor="pin">رمز التفعيل</label>
+          <input id="pin" type="password" inputMode="numeric" autoComplete="one-time-code" autoFocus value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 6))} className="w-full rounded-2xl border border-background/15 bg-background/5 px-4 py-4 text-center text-2xl tracking-[0.5em] outline-none focus:border-primary" placeholder="••••••" />
+          {error && <p role="alert" className="mt-3 text-sm font-bold text-primary">{error}</p>}
+          <Button variant="hero" size="xl" className="mt-5 w-full" disabled={busy || pin.length === 0}>{busy ? "جاري التحقق..." : "تفعيل الحساب"}</Button>
+        </form>
+        <Button variant="ghost" className="mt-2 w-full text-background/70 hover:bg-background/10 hover:text-background" onClick={() => void logout()}>تسجيل الخروج</Button>
+      </section>
+    </main>;
+  }
 
   const sorted = sortOrdersForStaff(orders);
   const shown = filter === "all" ? sorted : sorted.filter((order) => order.status === filter);
+
   return <main dir="rtl" className="min-h-screen bg-foreground pb-28 text-background">
-    <header className="border-b border-background/10 px-4 py-4 sm:px-6"><div className="mx-auto grid max-w-7xl grid-cols-[minmax(0,1fr)_auto] items-center gap-4"><div className="flex min-w-0 items-center gap-3"><span className="grid size-11 shrink-0 place-items-center rounded-xl bg-primary text-primary-foreground"><Truck /></span><div className="min-w-0"><h1 className="truncate text-xl font-black">لوحة السائق</h1><p className="truncate text-xs text-background/50">تتحدّث فور وصول أي تغيير</p></div></div><div className="flex shrink-0"><Button variant="ghost" size="icon" title="تحديث" aria-label="تحديث" onClick={() => void refresh()} className="text-background hover:bg-background/10"><RefreshCw /></Button><Button variant="ghost" size="icon" title="خروج" aria-label="خروج" onClick={logout} className="text-background hover:bg-background/10"><LogOut /></Button></div></div></header>
+    <header className="border-b border-background/10 px-4 py-4 sm:px-6">
+      <div className="mx-auto grid max-w-7xl grid-cols-[minmax(0,1fr)_auto] items-center gap-4">
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-primary text-primary-foreground"><Truck /></span>
+          <div className="min-w-0">
+            <h1 className="truncate text-xl font-black">لوحة السائق</h1>
+            <p className="truncate text-xs text-background/50">{profile?.full_name || "سائق دز"}</p>
+          </div>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          <button
+            type="button"
+            role="switch"
+            aria-checked={online}
+            aria-label="حالة الاتصال"
+            disabled={busy}
+            onClick={() => void toggleOnline()}
+            className={`flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-bold transition ${online ? "border-success/40 bg-success/15 text-success" : "border-background/15 bg-background/5 text-background/60"}`}
+          >
+            <span className={`relative h-5 w-9 rounded-full transition ${online ? "bg-success" : "bg-background/20"}`}>
+              <span className={`absolute top-0.5 size-4 rounded-full bg-white transition-all ${online ? "start-0.5" : "start-4.5"}`} />
+            </span>
+            {online ? "متصل" : "غير متصل"}
+          </button>
+          <Button variant="ghost" size="icon" title="تحديث" aria-label="تحديث" onClick={() => void refresh()} disabled={!online} className="text-background hover:bg-background/10"><RefreshCw /></Button>
+          <Button variant="ghost" size="icon" title="خروج" aria-label="خروج" onClick={() => void logout()} className="text-background hover:bg-background/10"><LogOut /></Button>
+        </div>
+      </div>
+    </header>
+
     <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4"><Stat icon={<Package />} label="الطلبات النشطة" value={orders.filter((o) => o.status !== "completed").length} /><Stat icon={<ShoppingBag />} label="قيد الشراء" value={orders.filter((o) => o.status === "buying").length} /><Stat icon={<Truck />} label="في الطريق" value={orders.filter((o) => o.status === "delivering").length} /><Stat icon={<Check />} label="مكتملة" value={orders.filter((o) => o.status === "completed").length} /></div>
-      <div className="mt-6 flex gap-2 overflow-x-auto pb-2">{filters.map(([id,label]) => <Button key={id} variant={filter === id ? "hero" : "outline"} size="sm" className={filter === id ? "" : "border-background/15 bg-transparent text-background hover:bg-background/10 hover:text-background"} onClick={() => setFilter(id)}>{label}<span className="opacity-60">{id === "all" ? orders.length : orders.filter((o) => o.status === id).length}</span></Button>)}</div>
-      {error && <p role="alert" className="mt-3 text-sm text-primary">{error}</p>}
-      {shown.length === 0 ? <div className="mt-12 text-center text-background/50"><Search className="mx-auto size-10" /><p className="mt-3 font-bold">ماكو طلبات ضمن هذا التصنيف</p></div> : <div className="mt-4 grid gap-4 xl:grid-cols-2">{shown.map((order) => <OrderCard key={`${order.id}-${order.status}-${order.purchase_price}-${order.delivery_fee}`} order={order} pin={activePin} onSaved={() => refresh()} />)}</div>}
+      {!online ? (
+        <div className="flex items-center gap-3 rounded-2xl border border-amber-400/30 bg-amber-400/10 p-4 text-amber-300">
+          <WifiOff className="size-6 shrink-0" />
+          <p className="text-sm font-bold">أنت غير متصل الآن - فعّل زر الاتصال لبدء استقبال الطلبات</p>
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4"><Stat icon={<Package />} label="الطلبات النشطة" value={orders.filter((o) => o.status !== "completed").length} /><Stat icon={<ShoppingBag />} label="قيد الشراء" value={orders.filter((o) => o.status === "buying").length} /><Stat icon={<Truck />} label="في الطريق" value={orders.filter((o) => o.status === "delivering").length} /><Stat icon={<Check />} label="مكتملة" value={orders.filter((o) => o.status === "completed").length} /></div>
+          <div className="mt-6 flex gap-2 overflow-x-auto pb-2">{filters.map(([id, label]) => <Button key={id} variant={filter === id ? "hero" : "outline"} size="sm" className={filter === id ? "" : "border-background/15 bg-transparent text-background hover:bg-background/10 hover:text-background"} onClick={() => setFilter(id)}>{label}<span className="opacity-60">{id === "all" ? orders.length : orders.filter((o) => o.status === id).length}</span></Button>)}</div>
+          {error && <p role="alert" className="mt-3 text-sm text-primary">{error}</p>}
+          {shown.length === 0 ? <div className="mt-12 text-center text-background/50"><Search className="mx-auto size-10" /><p className="mt-3 font-bold">ماكو طلبات ضمن هذا التصنيف</p></div> : <div className="mt-4 grid gap-4 xl:grid-cols-2">{shown.map((order) => <OrderCard key={`${order.id}-${order.status}-${order.purchase_price}-${order.delivery_fee}`} order={order} onSaved={() => void refresh()} />)}</div>}
+        </>
+      )}
     </div>
     <BottomNav active="driver" dark />
   </main>;
@@ -127,16 +216,16 @@ function DriverPage() {
 
 function Stat({ icon, label, value }: { icon: React.ReactNode; label: string; value: number }) { return <div className="rounded-xl border border-background/10 bg-background/5 p-4"><span className="text-primary">{icon}</span><p className="mt-3 text-2xl font-black">{value}</p><p className="text-xs text-background/50">{label}</p></div>; }
 
-function OrderCard({ order, pin, onSaved }: { order: Order; pin: string; onSaved: () => void }) {
+function OrderCard({ order, onSaved }: { order: Order; onSaved: () => void }) {
   const [status, setStatus] = useState(order.status);
   const [purchase, setPurchase] = useState(String(order.purchase_price || ""));
   const [fee, setFee] = useState(String(order.delivery_fee || ""));
   const [saving, setSaving] = useState(false);
   const total = Number(purchase || 0) + Number(fee || 0);
   const [saveError, setSaveError] = useState("");
-  async function save(nextStatus = status) { setSaving(true); setSaveError(""); try { await updateDriverOrder({ data: { pin, driverId: driverId(), id: order.id, status: nextStatus as OrderStatus, purchasePrice: Number(purchase || 0), deliveryFee: Number(fee || 0) } }); onSaved(); } catch (e) { const m = e instanceof Error ? e.message : ""; setSaveError(m.includes("سائق آخر") ? "هذا الطلب استلمه سائق آخر." : "تعذّر حفظ التحديث. جرّب مرة ثانية."); if (m.includes("سائق آخر")) onSaved(); } finally { setSaving(false); } }
+  async function save(nextStatus = status) { setSaving(true); setSaveError(""); try { await updateDriverOrder({ data: { id: order.id, status: nextStatus as OrderStatus, purchasePrice: Number(purchase || 0), deliveryFee: Number(fee || 0) } }); onSaved(); } catch (e) { const m = e instanceof Error ? e.message : ""; setSaveError(m.includes("سائق آخر") ? "هذا الطلب استلمه سائق آخر." : "تعذّر حفظ التحديث. جرّب مرة ثانية."); if (m.includes("سائق آخر")) onSaved(); } finally { setSaving(false); } }
   const tone = getStatusTone(order.status);
-  return <article className="relative overflow-hidden rounded-2xl border border-background/10 bg-background/5 p-5 ps-6 shadow-xl"><span aria-hidden className={`absolute inset-y-0 start-0 w-1.5 ${tone.bar}`} /><div className="flex items-start justify-between gap-4"><div className="min-w-0"><p className="text-xs text-background/45">#{order.id.slice(0,8).toUpperCase()} · {new Date(order.created_at).toLocaleString("ar-IQ", { dateStyle: "short", timeStyle: "short" })}</p><h2 className="mt-1 truncate text-lg font-black">{order.store_type}</h2></div><span className={`shrink-0 rounded-full px-3 py-1 text-xs font-bold ${tone.badge}`}>{getStatusLabel(order.status)}</span></div>
+  return <article className="relative overflow-hidden rounded-2xl border border-background/10 bg-background/5 p-5 ps-6 shadow-xl"><span aria-hidden className={`absolute inset-y-0 start-0 w-1.5 ${tone.bar}`} /><div className="flex items-start justify-between gap-4"><div className="min-w-0"><p className="text-xs text-background/45">#{order.id.slice(0, 8).toUpperCase()} · {new Date(order.created_at).toLocaleString("ar-IQ", { dateStyle: "short", timeStyle: "short" })}</p><h2 className="mt-1 truncate text-lg font-black">{order.store_type}</h2></div><span className={`shrink-0 rounded-full px-3 py-1 text-xs font-bold ${tone.badge}`}>{getStatusLabel(order.status)}</span></div>
     {order.status === "pending" && <Button variant="hero" size="lg" className="mt-4 w-full rounded-xl" disabled={saving} onClick={() => void save("buying")}><ShoppingBag />قيد التجهيز — استلم الطلب</Button>}<p className="mt-4 whitespace-pre-wrap rounded-xl bg-foreground/60 p-4 text-sm leading-6">{order.items_list}</p>{order.voice_note_url && <div className="mt-3"><p className="mb-1 text-xs font-bold text-background/55">ملاحظة صوتية من الزبون</p><audio controls preload="none" src={order.voice_note_url} className="w-full" /></div>}<p className="mt-3 text-sm text-background/65">{order.delivery_address}</p><p dir="ltr" className="mt-1 text-right text-sm font-bold">{order.customer_phone}</p>
     <div className="mt-5 grid grid-cols-2 gap-3"><MoneyInput label="سعر المشتريات" value={purchase} setValue={setPurchase} /><MoneyInput label="أجرة التوصيل" value={fee} setValue={setFee} /></div><div className="mt-3 flex items-center justify-between rounded-xl bg-success/15 px-4 py-3"><span className="text-sm font-bold text-success">المجموع للزبون</span><strong>{total.toLocaleString("ar-IQ")} د.ع</strong></div>
     <label className="mt-4 block text-xs font-bold text-background/55">حالة الطلب</label><select aria-label="حالة الطلب" value={status} onChange={(e) => setStatus(e.target.value)} className="mt-2 w-full rounded-xl border border-background/15 bg-foreground px-4 py-3 outline-none focus:border-primary">{orderStages.map((stage) => <option key={stage.status} value={stage.status}>{stage.label}</option>)}</select>{saveError && <p role="alert" className="mt-2 text-sm text-primary">{saveError}</p>}<Button variant="emerald" size="lg" className="mt-4 w-full rounded-xl" disabled={saving} onClick={() => void save()}>{saving ? "جاري الحفظ..." : "حفظ وتحديث الزبون"}</Button>
