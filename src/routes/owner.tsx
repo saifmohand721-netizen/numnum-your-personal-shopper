@@ -160,8 +160,16 @@ function OwnerPage() {
           <section className="space-y-3">
             <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
               <button type="button" onClick={() => setSelected(null)} className="flex items-center gap-1 text-sm font-bold text-primary"><ArrowRight className="size-4" />رجوع للحسابات</button>
-              <p dir="ltr" className="mt-2 truncate text-right text-lg font-black">{selectedUser.email ?? selectedUser.phone ?? "—"}</p>
-              <p className="text-xs text-muted-foreground">{userOrders.length} طلب — المجموع {money(userOrders.reduce((s, o) => s + Number(o.total_price ?? 0), 0))}</p>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <p className="text-lg font-black">{selectedUser.profile?.full_name || selectedUser.email || selectedUser.phone || "—"}</p>
+                <span className={`rounded-full px-3 py-1 text-xs font-bold ${selectedUser.profile?.role === "driver" ? "bg-primary/10 text-primary" : "bg-success/10 text-success"}`}>{selectedUser.profile?.role === "driver" ? "سائق" : "زبون"}</span>
+              </div>
+              <p dir="ltr" className="truncate text-right text-sm text-muted-foreground">{selectedUser.email ?? selectedUser.phone ?? "—"}</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {selectedUser.profile?.region ? `المنطقة: ${selectedUser.profile.region} — ` : ""}
+                {selectedUser.profile?.phone ? <span dir="ltr">{selectedUser.profile.phone} — </span> : null}
+                {userOrders.length} طلب — المجموع {money(userOrders.reduce((s, o) => s + Number(o.total_price ?? 0), 0))}
+              </p>
               <div className="mt-3 grid grid-cols-[minmax(0,1fr)_auto] gap-2">
                 <select value={sort} onChange={(e) => setSort(e.target.value as typeof sort)} className="rounded-xl border border-input bg-background px-3 py-2 text-sm">
                   <option value="newest">الأحدث أولاً</option>
@@ -260,13 +268,21 @@ function OwnerPage() {
           users.map((u) => (
             <article key={u.id} className="rounded-2xl border border-border bg-card p-4 shadow-sm">
               <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
-                <p dir="ltr" className="truncate text-right font-bold">{u.email ?? u.phone ?? "—"}</p>
-                <div className="flex shrink-0 items-center gap-1.5">
-                  {u.banned && <span className="rounded-full bg-destructive/10 px-3 py-1 text-xs font-bold text-destructive">محظور</span>}
-                  <span className="rounded-full bg-muted px-3 py-1 text-xs font-bold">{u.provider === "google" ? "Google" : "بريد"}</span>
+                <div className="min-w-0">
+                  <p className="truncate font-black">{u.profile?.full_name || u.email || u.phone || "—"}</p>
+                  <p dir="ltr" className="truncate text-right text-xs text-muted-foreground">{u.email ?? u.phone ?? "—"}</p>
+                  {u.profile?.username && <p dir="ltr" className="truncate text-right text-xs text-muted-foreground">@{u.profile.username}</p>}
+                </div>
+                <div className="flex shrink-0 flex-col items-end gap-1.5">
+                  <span className={`rounded-full px-3 py-1 text-xs font-bold ${u.profile?.role === "driver" ? "bg-primary/10 text-primary" : "bg-success/10 text-success"}`}>{u.profile?.role === "driver" ? "سائق" : "زبون"}</span>
+                  <div className="flex items-center gap-1.5">
+                    {u.banned && <span className="rounded-full bg-destructive/10 px-3 py-1 text-xs font-bold text-destructive">محظور</span>}
+                    <span className="rounded-full bg-muted px-3 py-1 text-xs font-bold">{u.provider === "google" ? "Google" : "بريد"}</span>
+                  </div>
                 </div>
               </div>
-              <div className="mt-2 grid grid-cols-3 gap-2 text-xs text-muted-foreground">
+              <div className="mt-2 grid grid-cols-4 gap-2 text-xs text-muted-foreground">
+                <p>المنطقة<br /><span className="text-foreground">{u.profile?.region || "—"}</span></p>
                 <p>التسجيل<br /><span className="text-foreground">{fmt(u.created_at)}</span></p>
                 <p>آخر دخول<br /><span className="text-foreground">{fmt(u.last_sign_in_at)}</span></p>
                 <p>الطلبات<br /><span className="font-black text-primary">{ordersByUser.get(u.id) ?? 0}</span></p>
