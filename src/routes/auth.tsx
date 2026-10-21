@@ -1,6 +1,6 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState, type FormEvent } from "react";
-import { Check, ShoppingBag } from "lucide-react";
+import { Check } from "lucide-react";
 import { toast } from "sonner";
 
 import appIcon from "@/assets/diz-app-icon.png";
@@ -10,13 +10,13 @@ import { lovable } from "@/integrations/lovable";
 
 export const Route = createFileRoute("/auth")({
   validateSearch: (search: Record<string, unknown>) => ({
-    mode: search.mode === "up" ? ("up" as const) : ("in" as const),
+    mode: search["mode"] === "up" ? ("up" as const) : ("in" as const),
   }),
   head: () => ({
     meta: [
-      { title: "حساب الزبون — دز" },
-      { name: "description", content: "أنشئ حسابك في دز واطلب أي شيء يوصل لباب بيتك." },
-      { property: "og:title", content: "حساب الزبون — دز" },
+      { title: "تسجيل الدخول — دز" },
+      { name: "description", content: "سجّل دخولك إلى دز لطلب ومتابعة طلباتك بأمان." },
+      { property: "og:title", content: "تسجيل الدخول — دز" },
       { property: "og:description", content: "حسابك الخاص لطلبات الشراء والتوصيل." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
@@ -35,7 +35,7 @@ const REGIONS = [
 ] as const;
 
 const inputCls =
-  "w-full rounded-xl border border-background/15 bg-background/5 px-4 py-3 outline-none placeholder:text-background/35 focus:border-primary focus:ring-4 focus:ring-primary/15";
+  "w-full rounded-xl border border-input bg-background px-4 py-3 outline-none focus:border-primary focus:ring-4 focus:ring-primary/10";
 
 function AuthPage() {
   const navigate = useNavigate();
@@ -111,17 +111,14 @@ function AuthPage() {
   }
 
   return (
-    <main dir="rtl" className="grid min-h-screen place-items-center bg-foreground px-4 py-10 text-background">
-      <div className="w-full max-w-md animate-float-in rounded-2xl border border-background/10 bg-foreground p-6 shadow-2xl sm:p-8">
+    <main dir="rtl" className="grid min-h-screen place-items-center bg-background px-4 py-10">
+      <div className="w-full max-w-md animate-float-in rounded-2xl border border-border bg-card p-6 shadow-xl sm:p-8">
         <div className="flex items-center gap-3">
-          <img src={appIcon} alt="" width={56} height={56} className="size-14 rounded-xl shadow-lg" />
-          <div>
-            <h1 className="flex items-center gap-2 text-2xl font-black">حساب الزبون <ShoppingBag className="size-6 text-primary" /></h1>
-            <p className="text-sm text-background/55">{mode === "in" ? "أهلاً بعودتك! سجّل دخولك" : "أنشئ حسابك واطلب أي شيء"}</p>
-          </div>
+          <img src={appIcon} alt="" width={56} height={56} className="size-14 rounded-xl shadow-sm" />
+          <div><h1 className="text-2xl font-black text-primary">دز</h1><p className="text-sm text-muted-foreground">{mode === "in" ? "أهلاً بعودتك! سجّل دخولك" : "أنشئ حسابك الخاص"}</p></div>
         </div>
-        <Button type="button" variant="outline" size="lg" className="mt-7 w-full rounded-xl border-background/15 bg-transparent text-background hover:bg-background/10 hover:text-background" onClick={() => void google()}>المتابعة باستخدام Google</Button>
-        <div className="my-5 flex items-center gap-3 text-xs text-background/45"><span className="h-px flex-1 bg-background/15" />أو<span className="h-px flex-1 bg-background/15" /></div>
+        <Button type="button" variant="outline" size="lg" className="mt-7 w-full rounded-xl" onClick={() => void google()}>المتابعة باستخدام Google</Button>
+        <div className="my-5 flex items-center gap-3 text-xs text-muted-foreground"><span className="h-px flex-1 bg-border" />أو<span className="h-px flex-1 bg-border" /></div>
         <form onSubmit={submit} className="space-y-4">
           {mode === "up" && (
             <>
@@ -141,9 +138,9 @@ function AuthPage() {
                           setRegion("");
                           toast("ستتوفر الخدمة قريباً في منطقتك 🛵✨", { description: `نشتغل على الوصول إلى ${r} قريباً.` });
                         }}
-                        className={`relative flex min-h-20 flex-col items-start justify-between gap-2 rounded-xl border-2 p-3 text-start transition active:scale-[0.97] ${selected ? "border-primary bg-primary/15 shadow-md" : open ? "border-success/40 bg-background/5 hover:border-primary/60" : "border-background/10 bg-background/5 text-background/45"}`}>
+                        className={`relative flex min-h-20 flex-col items-start justify-between gap-2 rounded-xl border-2 p-3 text-start transition active:scale-[0.97] ${selected ? "border-primary bg-primary/10 shadow-md" : open ? "border-success/40 bg-background hover:border-primary/60" : "border-border bg-muted/40 text-muted-foreground"}`}>
                         <span className="text-sm font-bold leading-5">{r}</span>
-                        <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${open ? "bg-success/15 text-success" : "bg-background/10 text-background/45"}`}>{open ? "متاحة الآن 🟢" : "قريباً ⏳"}</span>
+                        <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${open ? "bg-success/15 text-success" : "bg-muted text-muted-foreground"}`}>{open ? "متاحة الآن 🟢" : "قريباً ⏳"}</span>
                         {selected && <span className="absolute left-2 top-2 grid size-6 place-items-center rounded-full bg-primary text-primary-foreground"><Check className="size-4" /></span>}
                       </button>
                     );
@@ -154,15 +151,12 @@ function AuthPage() {
           )}
           <input dir="ltr" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="email@example.com" className={inputCls} />
           <input dir="ltr" type="password" required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="كلمة السر" className={inputCls} />
-          {msg && <p role="alert" className="rounded-xl bg-background/5 px-4 py-3 text-sm font-bold text-primary">{msg}</p>}
+          {msg && <p role="alert" className="rounded-xl bg-muted px-4 py-3 text-sm font-bold">{msg}</p>}
           <Button variant="hero" size="xl" className="w-full" disabled={busy}>{busy ? "لحظة..." : mode === "in" ? "تسجيل الدخول" : "إنشاء حساب"}</Button>
         </form>
         <button type="button" className="mt-5 w-full text-sm font-bold text-primary" onClick={() => { setMode(mode === "in" ? "up" : "in"); setMsg(""); }}>
           {mode === "in" ? "ما عندك حساب؟ أنشئ حساب جديد" : "عندك حساب؟ سجّل دخولك"}
         </button>
-        <Button variant="ghost" className="mt-2 w-full text-background/60 hover:bg-background/10 hover:text-background" asChild>
-          <Link to="/">العودة للرئيسية</Link>
-        </Button>
       </div>
     </main>
   );
