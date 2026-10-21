@@ -120,7 +120,7 @@ function Home() {
     setError("");
     if (!signedIn) {
       toast("سجّل دخولك أولاً حتى نرسل طلبك", { description: "الدخول يستغرق أقل من دقيقة." });
-      navigate({ to: "/auth" });
+      navigate({ to: "/auth", search: { mode: "in" } });
       return;
     }
     if (!items.trim() || !address.trim() || phone.replace(/\D/g, "").length < 9) {
@@ -200,7 +200,7 @@ function Home() {
           <h1 className="text-2xl font-black">طلباتي</h1>
           {signedIn === false ? <div className="rounded-2xl border border-dashed border-border bg-card p-8 text-center">
             <LogIn className="mx-auto size-10 text-muted-foreground" /><p className="mt-3 font-bold">سجّل دخولك لتشوف طلباتك</p>
-            <Button variant="hero" className="mt-4" asChild><Link to="/auth">تسجيل الدخول</Link></Button>
+            <Button variant="hero" className="mt-4" asChild><Link to="/auth" search={{ mode: "in" }}>تسجيل الدخول</Link></Button>
           </div> : myOrders.length === 0 ? <div className="rounded-2xl border border-dashed border-border bg-card p-8 text-center">
             <Package className="mx-auto size-10 text-muted-foreground" /><p className="mt-3 font-bold">ما عندك طلبات بعد</p>
             <Button variant="hero" className="mt-4" onClick={() => selectTab("home")}>اطلب الآن</Button>
@@ -314,7 +314,7 @@ function BrandHeader({ signedIn }: { signedIn: boolean }) {
     <Link to="/" className="flex min-w-0 items-center gap-3"><img src={appIcon} alt="" width={48} height={48} className="size-12 shrink-0 rounded-xl shadow-sm" /><div className="min-w-0"><p className="truncate text-2xl font-black text-primary">دز</p><p className="truncate text-xs font-medium text-muted-foreground">نشتري ونوصل لك أي شيء</p></div></Link>
     <div className="flex shrink-0 items-center gap-2"><span className="hidden items-center gap-2 rounded-full border border-border bg-card px-3 py-2 text-xs font-bold shadow-sm sm:flex"><MapPin className="size-4 text-primary" />توصيل إلى: منطقتك الحالية</span>{signedIn
       ? <Button variant="ghost" size="icon" aria-label="تسجيل الخروج" title="تسجيل الخروج" onClick={() => void signOut()}><LogOut /></Button>
-      : <Button variant="outline" size="sm" asChild><Link to="/auth"><LogIn className="size-4" />دخول</Link></Button>}</div>
+      : <Button variant="outline" size="sm" asChild><Link to="/auth" search={{ mode: "in" }}><LogIn className="size-4" />دخول</Link></Button>}</div>
   </header>;
 }
 
