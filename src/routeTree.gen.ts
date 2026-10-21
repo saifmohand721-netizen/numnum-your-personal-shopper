@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as DriverRouteImport } from './routes/driver'
 import { Route as DriverAuthRouteImport } from './routes/driver-auth'
+import { Route as HomeRouteImport } from './routes/home'
 import { Route as OwnerRouteImport } from './routes/owner'
 
 const IndexRoute = IndexRouteImport.update({
@@ -35,6 +36,11 @@ const DriverAuthRoute = DriverAuthRouteImport.update({
   path: '/driver-auth',
   getParentRoute: () => rootRouteImport,
 } as any)
+const HomeRoute = HomeRouteImport.update({
+  id: '/home',
+  path: '/home',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const OwnerRoute = OwnerRouteImport.update({
   id: '/owner',
   path: '/owner',
@@ -46,6 +52,7 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/driver': typeof DriverRoute
   '/driver-auth': typeof DriverAuthRoute
+  '/home': typeof HomeRoute
   '/owner': typeof OwnerRoute
 }
 export interface FileRoutesByTo {
@@ -53,6 +60,7 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/driver': typeof DriverRoute
   '/driver-auth': typeof DriverAuthRoute
+  '/home': typeof HomeRoute
   '/owner': typeof OwnerRoute
 }
 export interface FileRoutesById {
@@ -61,14 +69,16 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/driver': typeof DriverRoute
   '/driver-auth': typeof DriverAuthRoute
+  '/home': typeof HomeRoute
   '/owner': typeof OwnerRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/auth' | '/driver' | '/driver-auth' | '/owner'
+  fullPaths: '/' | '/auth' | '/driver' | '/driver-auth' | '/home' | '/owner'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth' | '/driver' | '/driver-auth' | '/owner'
-  id: '__root__' | '/' | '/auth' | '/driver' | '/driver-auth' | '/owner'
+  to: '/' | '/auth' | '/driver' | '/driver-auth' | '/home' | '/owner'
+  id:
+    '__root__' | '/' | '/auth' | '/driver' | '/driver-auth' | '/home' | '/owner'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -76,6 +86,7 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   DriverRoute: typeof DriverRoute
   DriverAuthRoute: typeof DriverAuthRoute
+  HomeRoute: typeof HomeRoute
   OwnerRoute: typeof OwnerRoute
 }
 
@@ -109,6 +120,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DriverAuthRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/home': {
+      id: '/home'
+      path: '/home'
+      fullPath: '/home'
+      preLoaderRoute: typeof HomeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/owner': {
       id: '/owner'
       path: '/owner'
@@ -124,6 +142,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRoute,
   DriverRoute: DriverRoute,
   DriverAuthRoute: DriverAuthRoute,
+  HomeRoute: HomeRoute,
   OwnerRoute: OwnerRoute,
 }
 export const routeTree = rootRouteImport
