@@ -47,9 +47,9 @@ function AuthPage() {
   const [msg, setMsg] = useState("");
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => { if (data.user) navigate({ to: "/", replace: true }); });
+    supabase.auth.getUser().then(({ data }) => { if (data.user) navigate({ to: "/home", replace: true }); });
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === "SIGNED_IN" && session) navigate({ to: "/", replace: true });
+      if (event === "SIGNED_IN" && session) navigate({ to: "/home", replace: true });
     });
     return () => sub.subscription.unsubscribe();
   }, [navigate]);
@@ -90,11 +90,11 @@ function AuthPage() {
           return;
         }
         if (!data.user) { setMsg("تعذّر إنشاء الحساب. جرّب مرة ثانية."); return; }
-        if (data.session) { navigate({ to: "/", replace: true }); return; }
+        if (data.session) { navigate({ to: "/home", replace: true }); return; }
         // Fallback: if no session came back, sign in directly.
         const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
         if (signInError) { setMsg("تم إنشاء الحساب! سجّل دخولك الآن."); setMode("in"); return; }
-        navigate({ to: "/", replace: true });
+        navigate({ to: "/home", replace: true });
       }
     } finally { setBusy(false); }
   }

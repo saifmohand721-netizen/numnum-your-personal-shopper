@@ -4,6 +4,7 @@ import {
   ArrowLeft,
   ChevronLeft,
   Hammer,
+  LogIn,
   LogOut,
   MapPin,
   Mic,
@@ -12,6 +13,7 @@ import {
   ShoppingBasket,
   X,
 } from "lucide-react";
+import { toast } from "sonner";
 
 import appIcon from "@/assets/diz-app-icon.png";
 import { Button } from "@/components/ui/button";
@@ -21,12 +23,12 @@ import { getStatusLabel } from "@/lib/order-status";
 import { createOrder, listMyOrders, trackOrder } from "@/lib/orders.functions";
 import { supabase } from "@/lib/supabase";
 
-export const Route = createFileRoute("/_authenticated/")({
+export const Route = createFileRoute("/home")({
   head: () => ({
     meta: [
-      { title: "دز — نشتري ونوصل لك أي شيء" },
+      { title: "دز — اطلب أي شيء" },
       { name: "description", content: "اطلب أغراضك من أي متجر، ودز يشتريها ويوصلها لباب بيتك." },
-      { property: "og:title", content: "دز — نشتري ونوصل لك أي شيء" },
+      { property: "og:title", content: "دز — اطلب أي شيء" },
       { property: "og:description", content: "خدمة شراء وتوصيل شخصية سريعة وموثوقة." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -34,7 +36,7 @@ export const Route = createFileRoute("/_authenticated/")({
   }),
   validateSearch: (search: Record<string, unknown>): { tab?: "home" | "orders" } =>
     search["tab"] === "orders" ? { tab: "orders" } : {},
-  component: Index,
+  component: Home,
 });
 
 const categories = [
@@ -46,9 +48,11 @@ const categories = [
 
 type TrackedOrder = Awaited<ReturnType<typeof trackOrder>>;
 
-function Index() {
+function Home() {
   const tab = Route.useSearch().tab ?? "home";
   const navigate = useNavigate();
+  // Browsing is public; ordering and "طلباتي" need a signed-in customer.
+  const [signedIn, setSignedIn] = useState<boolean | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [step, setStep] = useState(1);
   const [category, setCategory] = useState("grocery");
@@ -64,11 +68,21 @@ function Index() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
-    void listMyOrders().then((rows) => setMyOrders(Array.isArray(rows) ? rows : [])).catch(() => {});
-  }, [tracked?.id, tracked?.status]);
+    supabase.auth.getUser().then(({ data }) => setSignedIn(!!data.user));
+    const { data: sub } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "SIGNED_IN") setSignedIn(true);
+      if (event === "SIGNED_OUT") setSignedIn(false);
+    });
+    return () => sub.subscription.unsubscribe();
+  }, []);
 
   useEffect(() => {
-    if (!tracked) return;
+    if (!signedIn) { setMyOrders([]); return; }
+    void listMyOrders().then((rows) => setMyOrders(Array.isArray(rows) ? rows : [])).catch(() => {});
+  }, [signedIn, tracked?.id, tracked?.status]);
+
+  useEffect(() => {
+    if (!tracked || !signedIn) return;
     const orderId = tracked.id;
     const refresh = async () => {
       try {
@@ -92,7 +106,7 @@ function Index() {
       window.clearInterval(timer);
       supabase.removeChannel(channel);
     };
-  }, [tracked?.id]);
+  }, [tracked?.id, signedIn]);
 
   function resizeItems() {
     const textarea = textareaRef.current;
@@ -104,6 +118,11 @@ function Index() {
   async function submitOrder(event: FormEvent) {
     event.preventDefault();
     setError("");
+    if (!signedIn) {
+      toast("سجّل دخولك أولاً حتى نرسل طلبك", { description: "الدخول يستغرق أقل من دقيقة." });
+      navigate({ to: "/auth" });
+      return;
+    }
     if (!items.trim() || !address.trim() || phone.replace(/\D/g, "").length < 9) {
       setError("كمّل قائمة الأغراض والعنوان ورقم الهاتف حتى نرسل طلبك.");
       return;
@@ -138,14 +157,14 @@ function Index() {
     setCategory(id); setStep(1); setError(""); setSheetOpen(true);
   }
   function selectTab(next: "home" | "orders") {
-    void navigate({ to: "/", search: { tab: next }, replace: true });
+    void navigate({ to: "/home", search: { tab: next }, replace: true });
   }
 
   return (
     <main dir="rtl" className="min-h-screen bg-background pb-28">
 
       <div className="mx-auto max-w-2xl px-4">
-        <BrandHeader />
+        <BrandHeader signedIn={!!signedIn} />
 
         {tab === "home" ? <div className="animate-float-in space-y-6 pt-2">
           <button type="button" onClick={() => openOrder(category)} className="flex w-full items-center gap-3 rounded-2xl border border-border bg-card p-4 text-right shadow-sm transition hover:shadow-xl">
@@ -179,7 +198,10 @@ function Index() {
           </button>}
         </div> : <div className="animate-float-in space-y-6 pt-2">
           <h1 className="text-2xl font-black">طلباتي</h1>
-          {myOrders.length === 0 ? <div className="rounded-2xl border border-dashed border-border bg-card p-8 text-center">
+          {signedIn === false ? <div className="rounded-2xl border border-dashed border-border bg-card p-8 text-center">
+            <LogIn className="mx-auto size-10 text-muted-foreground" /><p className="mt-3 font-bold">سجّل دخولك لتشوف طلباتك</p>
+            <Button variant="hero" className="mt-4" asChild><Link to="/auth">تسجيل الدخول</Link></Button>
+          </div> : myOrders.length === 0 ? <div className="rounded-2xl border border-dashed border-border bg-card p-8 text-center">
             <Package className="mx-auto size-10 text-muted-foreground" /><p className="mt-3 font-bold">ما عندك طلبات بعد</p>
             <Button variant="hero" className="mt-4" onClick={() => selectTab("home")}>اطلب الآن</Button>
           </div> : <>
@@ -195,7 +217,7 @@ function Index() {
           <div className="mb-5 flex items-center gap-2">{[1, 2].map((i) => <span key={i} className={`h-1.5 flex-1 rounded-full ${i <= step ? "bg-primary" : "bg-border"}`} />)}</div>
           {step === 1 ? <div className="animate-float-in">
             <label className="text-sm font-extrabold" htmlFor="items">قائمة الأغراض المطلوبة</label>
-            <div className="relative mt-2"><textarea ref={textareaRef} id="items" value={items} onInput={resizeItems} onChange={(e) => setItems(e.target.value)} rows={5} placeholder={'• 2 كيلو رز\n• كارتون ماء\n• منظف ملابس'} className="min-h-36 w-full resize-none rounded-xl border border-input bg-background p-4 pb-12 text-sm leading-7 outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/10" /></div><VoiceRecorder path={voicePath} onChange={setVoicePath} />
+            <div className="relative mt-2"><textarea ref={textareaRef} id="items" value={items} onInput={resizeItems} onChange={(e) => setItems(e.target.value)} rows={5} placeholder={'• 2 كيلو رز\n• كارتون ماء\n• منظف ملابس'} className="min-h-36 w-full resize-none rounded-xl border border-input bg-background p-4 pb-12 text-sm leading-7 outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/10" /></div><VoiceRecorder path={voicePath} onChange={setVoicePath} signedIn={!!signedIn} />
             {error && <p role="alert" className="mt-3 rounded-xl bg-destructive/10 px-4 py-3 text-sm font-bold text-destructive">{error}</p>}
             <Button type="button" variant="hero" size="xl" className="mt-5 w-full" onClick={() => { if (items.trim()) { setError(""); setStep(2); } else setError("اكتب الأغراض المطلوبة أولاً."); }}>كمّل تفاصيل التوصيل <ChevronLeft /></Button>
           </div> : <div className="animate-float-in space-y-5">
@@ -282,22 +304,25 @@ function Sheet({ open, onClose, title, children }: { open: boolean; onClose: () 
   </div>;
 }
 
-function BrandHeader() {
+function BrandHeader({ signedIn }: { signedIn: boolean }) {
   const navigate = useNavigate();
   async function signOut() {
     await supabase.auth.signOut();
-    navigate({ to: "/auth", replace: true });
+    navigate({ to: "/home", replace: true });
   }
   return <header className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 py-4 sm:flex sm:justify-between">
     <Link to="/" className="flex min-w-0 items-center gap-3"><img src={appIcon} alt="" width={48} height={48} className="size-12 shrink-0 rounded-xl shadow-sm" /><div className="min-w-0"><p className="truncate text-2xl font-black text-primary">دز</p><p className="truncate text-xs font-medium text-muted-foreground">نشتري ونوصل لك أي شيء</p></div></Link>
-    <div className="flex shrink-0 items-center gap-2"><span className="hidden items-center gap-2 rounded-full border border-border bg-card px-3 py-2 text-xs font-bold shadow-sm sm:flex"><MapPin className="size-4 text-primary" />توصيل إلى: منطقتك الحالية</span><Button variant="ghost" size="icon" aria-label="تسجيل الخروج" title="تسجيل الخروج" onClick={() => void signOut()}><LogOut /></Button></div>
+    <div className="flex shrink-0 items-center gap-2"><span className="hidden items-center gap-2 rounded-full border border-border bg-card px-3 py-2 text-xs font-bold shadow-sm sm:flex"><MapPin className="size-4 text-primary" />توصيل إلى: منطقتك الحالية</span>{signedIn
+      ? <Button variant="ghost" size="icon" aria-label="تسجيل الخروج" title="تسجيل الخروج" onClick={() => void signOut()}><LogOut /></Button>
+      : <Button variant="outline" size="sm" asChild><Link to="/auth"><LogIn className="size-4" />دخول</Link></Button>}</div>
   </header>;
 }
 
 function Field({ label, icon, children }: { label: string; icon: React.ReactNode; children: React.ReactNode }) { return <div><label className="text-sm font-extrabold">{label}</label><div className="mt-2 flex items-center gap-2 rounded-xl border border-input bg-background px-3 focus-within:border-primary focus-within:ring-4 focus-within:ring-primary/10"><span className="text-primary">{icon}</span>{children}</div></div>; }
 
 function PriceRow({ label, value, pending, strong }: { label: string; value: number; pending: boolean; strong?: boolean }) { return <div className={`flex items-center justify-between gap-4 ${strong ? "border-t border-border pt-3 text-lg font-black" : "text-muted-foreground"}`}><span>{label}</span><span className={strong ? "text-primary" : "font-bold text-foreground"}>{pending ? "يُحدد بعد الشراء" : `${Number(value).toLocaleString("ar-IQ")} د.ع`}</span></div>; }
-function VoiceRecorder({ path, onChange }: { path: string | null; onChange: (p: string | null) => void }) {
+
+function VoiceRecorder({ path, onChange, signedIn }: { path: string | null; onChange: (p: string | null) => void; signedIn: boolean }) {
   const [state, setState] = useState<"idle" | "recording" | "uploading" | "error">("idle");
   const [seconds, setSeconds] = useState(0);
   const [preview, setPreview] = useState<string | null>(null);
@@ -342,6 +367,12 @@ function VoiceRecorder({ path, onChange }: { path: string | null; onChange: (p: 
   }
 
   function remove() { onChange(null); setPreview(null); setState("idle"); }
+
+  if (!signedIn) {
+    return <div className="mt-3 rounded-xl border border-border bg-muted/40 p-3">
+      <span className="text-xs text-muted-foreground">سجّل دخولك حتى تكدر تضيف ملاحظة صوتية لطلبك</span>
+    </div>;
+  }
 
   return <div className="mt-3 rounded-xl border border-border bg-muted/40 p-3">
     {state === "recording" ? <div className="flex items-center justify-between gap-3">

@@ -9,14 +9,16 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
+import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as DriverRouteImport } from './routes/driver'
+import { Route as DriverAuthRouteImport } from './routes/driver-auth'
+import { Route as HomeRouteImport } from './routes/home'
 import { Route as OwnerRouteImport } from './routes/owner'
-import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
 
-const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
-  id: '/_authenticated',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthRoute = AuthRouteImport.update({
@@ -29,65 +31,72 @@ const DriverRoute = DriverRouteImport.update({
   path: '/driver',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DriverAuthRoute = DriverAuthRouteImport.update({
+  id: '/driver-auth',
+  path: '/driver-auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const HomeRoute = HomeRouteImport.update({
+  id: '/home',
+  path: '/home',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const OwnerRoute = OwnerRouteImport.update({
   id: '/owner',
   path: '/owner',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedIndexRoute = AuthenticatedIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof AuthenticatedIndexRoute
+  '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/driver': typeof DriverRoute
+  '/driver-auth': typeof DriverAuthRoute
+  '/home': typeof HomeRoute
   '/owner': typeof OwnerRoute
 }
 export interface FileRoutesByTo {
+  '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/driver': typeof DriverRoute
+  '/driver-auth': typeof DriverAuthRoute
+  '/home': typeof HomeRoute
   '/owner': typeof OwnerRoute
-  '/': typeof AuthenticatedIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
+  '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/driver': typeof DriverRoute
+  '/driver-auth': typeof DriverAuthRoute
+  '/home': typeof HomeRoute
   '/owner': typeof OwnerRoute
-  '/_authenticated/': typeof AuthenticatedIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/auth' | '/driver' | '/owner'
+  fullPaths: '/' | '/auth' | '/driver' | '/driver-auth' | '/home' | '/owner'
   fileRoutesByTo: FileRoutesByTo
-  to: '/auth' | '/driver' | '/owner' | '/'
+  to: '/' | '/auth' | '/driver' | '/driver-auth' | '/home' | '/owner'
   id:
-    | '__root__'
-    | '/_authenticated'
-    | '/auth'
-    | '/driver'
-    | '/owner'
-    | '/_authenticated/'
+    '__root__' | '/' | '/auth' | '/driver' | '/driver-auth' | '/home' | '/owner'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
+  IndexRoute: typeof IndexRoute
   AuthRoute: typeof AuthRoute
   DriverRoute: typeof DriverRoute
+  DriverAuthRoute: typeof DriverAuthRoute
+  HomeRoute: typeof HomeRoute
   OwnerRoute: typeof OwnerRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/_authenticated': {
-      id: '/_authenticated'
-      path: ''
+    '/': {
+      id: '/'
+      path: '/'
       fullPath: '/'
-      preLoaderRoute: typeof AuthenticatedRouteRouteImport
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth': {
@@ -104,6 +113,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DriverRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/driver-auth': {
+      id: '/driver-auth'
+      path: '/driver-auth'
+      fullPath: '/driver-auth'
+      preLoaderRoute: typeof DriverAuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/home': {
+      id: '/home'
+      path: '/home'
+      fullPath: '/home'
+      preLoaderRoute: typeof HomeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/owner': {
       id: '/owner'
       path: '/owner'
@@ -111,31 +134,15 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof OwnerRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/': {
-      id: '/_authenticated/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof AuthenticatedIndexRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
   }
 }
 
-interface AuthenticatedRouteRouteChildren {
-  AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
-}
-
-const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
-  AuthenticatedIndexRoute: AuthenticatedIndexRoute,
-}
-
-const AuthenticatedRouteRouteWithChildren =
-  AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
-
 const rootRouteChildren: RootRouteChildren = {
-  AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
+  IndexRoute: IndexRoute,
   AuthRoute: AuthRoute,
   DriverRoute: DriverRoute,
+  DriverAuthRoute: DriverAuthRoute,
+  HomeRoute: HomeRoute,
   OwnerRoute: OwnerRoute,
 }
 export const routeTree = rootRouteImport

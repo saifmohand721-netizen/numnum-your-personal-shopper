@@ -1,10 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState, type FormEvent } from "react";
-import { ArrowRight, Ban, Eye, FileDown, Lock, LogOut, Package, RefreshCw, Search, ShieldCheck, Trash2, Users } from "lucide-react";
+import { ArrowRight, Ban, Eye, FileDown, Lock, LogOut, Package, RefreshCw, Search, ShieldCheck, Trash2, Truck, Users } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { getCleanupSettings, getOwnerOverview, saveCleanupSettings, setUserBanned } from "@/lib/owner.functions";
+import { getCleanupSettings, getDriversOverview, getOwnerOverview, saveCleanupSettings, setUserBanned } from "@/lib/owner.functions";
 import { getStageIndex, getStatusLabel, getStatusTone, sortOrdersForStaff } from "@/lib/order-status";
+import { splitLedger } from "@/lib/order-ledger";
 import { exportOrdersPdf } from "@/lib/orders-pdf";
 
 export const Route = createFileRoute("/owner")({
@@ -23,6 +24,7 @@ export const Route = createFileRoute("/owner")({
 });
 
 type Overview = Awaited<ReturnType<typeof getOwnerOverview>>;
+type Drivers = Awaited<ReturnType<typeof getDriversOverview>>;
 const fmt = (d: string | null) => (d ? new Date(d).toLocaleString("ar-IQ", { dateStyle: "medium", timeStyle: "short" }) : "—");
 const money = (n: number | null) => `${Number(n ?? 0).toLocaleString("ar-IQ")} د.ع`;
 
@@ -30,7 +32,9 @@ function OwnerPage() {
   const [password, setPassword] = useState("");
   const [active, setActive] = useState("");
   const [data, setData] = useState<Overview | null>(null);
-  const [tab, setTab] = useState<"orders" | "users">("orders");
+  const [drivers, setDrivers] = useState<Drivers>([]);
+  const [tab, setTab] = useState<"orders" | "users" | "drivers">("orders");
+  const [ledger, setLedger] = useState<"completed" | "open">("completed");
   const [q, setQ] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -44,8 +48,12 @@ function OwnerPage() {
   async function load(pw: string) {
     setBusy(true);
     try {
-      const [res, cl] = await Promise.all([getOwnerOverview({ data: { password: pw } }), getCleanupSettings({ data: { password: pw } })]);
-      setData(res); setCleanup(cl); setActive(pw); setError("");
+      const [res, cl, drv] = await Promise.all([
+        getOwnerOverview({ data: { password: pw } }),
+        getCleanupSettings({ data: { password: pw } }),
+        getDriversOverview({ data: { password: pw } }),
+      ]);
+      setData(res); setCleanup(cl); setDrivers(drv); setActive(pw); setError("");
     } catch {
       setError("كلمة السر غير صحيحة."); setActive(""); setData(null);
     } finally { setBusy(false); }
@@ -75,8 +83,12 @@ function OwnerPage() {
 
   const emailById = useMemo(() => new Map((data?.users ?? []).map((u) => [u.id, u.email ?? u.phone ?? "—"])), [data]);
   const term = q.trim().toLowerCase();
-  const orders = sortOrdersForStaff(data?.orders ?? []).filter((o) => !term || [o.customer_phone, o.items_list, o.delivery_address, o.store_type, emailById.get(o.user_id ?? "")].some((v) => String(v ?? "").toLowerCase().includes(term)));
+  // Accounting rule: financial totals aggregate completed orders only.
+  const { completed: completedOrders, open: openOrders, completedTotals } = splitLedger(data?.orders ?? []);
+  const ledgerOrders = sortOrdersForStaff(ledger === "completed" ? completedOrders : openOrders)
+    .filter((o) => !term || [o.customer_phone, o.items_list, o.delivery_address, o.store_type, emailById.get(o.user_id ?? "")].some((v) => String(v ?? "").toLowerCase().includes(term)));
   const users = (data?.users ?? []).filter((u) => !term || [u.email, u.phone].some((v) => String(v ?? "").toLowerCase().includes(term)));
+  const shownDrivers = drivers.filter((d) => !term || [d.full_name, d.email, d.phone].some((v) => String(v ?? "").toLowerCase().includes(term)));
   const ordersByUser = useMemo(() => {
     const m = new Map<string, number>();
     for (const o of data?.orders ?? []) if (o.user_id) m.set(o.user_id, (m.get(o.user_id) ?? 0) + 1);
@@ -117,8 +129,6 @@ function OwnerPage() {
     );
   }
 
-  const revenue = data.orders.reduce((s, o) => s + Number(o.delivery_fee ?? 0), 0);
-
   return (
     <main dir="rtl" className="app-screen bg-background pb-10">
       <header className="sticky top-0 z-30 border-b border-border bg-card/90 px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur-xl">
@@ -133,17 +143,18 @@ function OwnerPage() {
 
       <div className="mx-auto max-w-2xl space-y-4 px-4 pt-4">
         <div className="grid grid-cols-3 gap-2">
-          {[["الحسابات", data.users.length], ["الطلبات", data.orders.length], ["أجور التوصيل", money(revenue)]].map(([l, v]) => (
+          {[["الحسابات", data.users.length], ["الطلبات", data.orders.length], ["أجور التوصيل", money(completedTotals.fees)]].map(([l, v]) => (
             <div key={String(l)} className="rounded-2xl border border-border bg-card p-3 text-center shadow-sm"><p className="text-xs text-muted-foreground">{l}</p><p className="mt-1 truncate text-lg font-black">{v}</p></div>
           ))}
         </div>
 
-        <div className="grid grid-cols-2 gap-1 rounded-2xl bg-muted p-1">
+        <div className="grid grid-cols-3 gap-1 rounded-2xl bg-muted p-1">
           <button type="button" onClick={() => setTab("orders")} className={`flex items-center justify-center gap-2 rounded-xl py-2 text-sm font-bold ${tab === "orders" ? "bg-card text-primary shadow-sm" : "text-muted-foreground"}`}><Package className="size-4" />الطلبات</button>
+          <button type="button" onClick={() => setTab("drivers")} className={`flex items-center justify-center gap-2 rounded-xl py-2 text-sm font-bold ${tab === "drivers" ? "bg-card text-primary shadow-sm" : "text-muted-foreground"}`}><Truck className="size-4" />السائقون</button>
           <button type="button" onClick={() => setTab("users")} className={`flex items-center justify-center gap-2 rounded-xl py-2 text-sm font-bold ${tab === "users" ? "bg-card text-primary shadow-sm" : "text-muted-foreground"}`}><Users className="size-4" />الحسابات</button>
         </div>
 
-        <label className="flex items-center gap-2 rounded-xl border border-input bg-card px-3"><Search className="size-4 shrink-0 text-muted-foreground" /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="بحث بالبريد أو الهاتف أو العنوان" className="w-full bg-transparent py-3 outline-none" /></label>
+        <label className="flex items-center gap-2 rounded-xl border border-input bg-card px-3"><Search className="size-4 shrink-0 text-muted-foreground" /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="بحث بالاسم أو البريد أو الهاتف أو العنوان" className="w-full bg-transparent py-3 outline-none" /></label>
 
         {selectedUser ? (
           <section className="space-y-3">
@@ -187,24 +198,61 @@ function OwnerPage() {
             ))}
           </section>
         ) : tab === "orders" ? (
-          orders.length === 0 ? <p className="py-10 text-center text-muted-foreground">لا توجد طلبات.</p> :
-          orders.map((o) => (
-            <article key={o.id} className="relative overflow-hidden rounded-2xl border border-border bg-card p-4 ps-5 shadow-sm"><span aria-hidden className={`absolute inset-y-0 start-0 w-1.5 ${getStatusTone(o.status).bar}`} />
-              <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
-                <div className="min-w-0"><p className="truncate font-black">{o.store_type}</p><p className="text-xs text-muted-foreground">{fmt(o.created_at)}</p></div>
-                <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-bold ${getStatusTone(o.status).badge}`}>{getStatusLabel(o.status)}</span>
+          <section className="space-y-3">
+            <div className="grid grid-cols-2 gap-1 rounded-2xl bg-muted p-1">
+              <button type="button" onClick={() => setLedger("completed")} className={`rounded-xl py-2 text-sm font-bold ${ledger === "completed" ? "bg-card text-success shadow-sm" : "text-muted-foreground"}`}>الطلبات المكتملة ({completedOrders.length})</button>
+              <button type="button" onClick={() => setLedger("open")} className={`rounded-xl py-2 text-sm font-bold ${ledger === "open" ? "bg-card text-primary shadow-sm" : "text-muted-foreground"}`}>الطلبات غير المكتملة ({openOrders.length})</button>
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              {[["مكتملة", completedTotals.count], ["الأجور", money(completedTotals.fees)], ["المبالغ", money(completedTotals.amount)]].map(([l, v]) => (
+                <div key={String(l)} className="rounded-2xl border border-success/25 bg-success/5 p-3 text-center"><p className="text-xs text-muted-foreground">{l}</p><p className="mt-1 truncate text-sm font-black text-success">{v}</p></div>
+              ))}
+            </div>
+            <p className="text-xs text-muted-foreground">الإجماليات المالية تُحسب من الطلبات المكتملة فقط.</p>
+            {ledgerOrders.length === 0 ? <p className="py-10 text-center text-muted-foreground">لا توجد طلبات ضمن هذا التبويب.</p> :
+            ledgerOrders.map((o) => (
+              <article key={o.id} className="relative overflow-hidden rounded-2xl border border-border bg-card p-4 ps-5 shadow-sm"><span aria-hidden className={`absolute inset-y-0 start-0 w-1.5 ${getStatusTone(o.status).bar}`} />
+                <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
+                  <div className="min-w-0"><p className="truncate font-black">{o.store_type}</p><p className="text-xs text-muted-foreground">{fmt(o.created_at)}</p></div>
+                  <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-bold ${getStatusTone(o.status).badge}`}>{getStatusLabel(o.status)}</span>
+                </div>
+                <p className="mt-3 whitespace-pre-wrap rounded-xl bg-muted p-3 text-sm leading-6">{o.items_list}</p>
+                {o.voice_note_url && <audio controls preload="none" src={o.voice_note_url} className="mt-3 w-full" />}
+                <dl className="mt-3 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1.5 text-sm">
+                  <dt className="text-muted-foreground">الحساب</dt><dd className="truncate" dir="ltr">{emailById.get(o.user_id ?? "") ?? "—"}</dd>
+                  <dt className="text-muted-foreground">الهاتف</dt><dd dir="ltr" className="text-right font-bold">{o.customer_phone}</dd>
+                  <dt className="text-muted-foreground">العنوان</dt><dd className="break-words">{o.delivery_address}</dd>
+                  <dt className="text-muted-foreground">سقف الميزانية</dt><dd>{o.budget_limit ? money(o.budget_limit) : "—"}</dd>
+                  <dt className="text-muted-foreground">المشتريات</dt><dd>{money(o.purchase_price)}</dd>
+                  <dt className="text-muted-foreground">التوصيل</dt><dd>{money(o.delivery_fee)}</dd>
+                  <dt className="font-bold">المجموع</dt><dd className="font-black text-primary">{money(o.total_price)}</dd>
+                </dl>
+              </article>
+            ))}
+          </section>
+        ) : tab === "drivers" ? (
+          shownDrivers.length === 0 ? <p className="py-10 text-center text-muted-foreground">لا يوجد سائقون مسجلون بعد.</p> :
+          shownDrivers.map((d) => (
+            <article key={d.id} className="rounded-2xl border border-border bg-card p-4 shadow-sm">
+              <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
+                <div className="min-w-0">
+                  <p className="truncate font-black">{d.full_name || "—"}</p>
+                  <p dir="ltr" className="truncate text-right text-xs text-muted-foreground">{d.phone || "—"}</p>
+                  <p dir="ltr" className="truncate text-right text-xs text-muted-foreground">{d.email || "—"}</p>
+                </div>
+                <div className="flex shrink-0 flex-col items-end gap-1.5">
+                  <span className={`rounded-full px-3 py-1 text-xs font-bold ${d.is_verified ? "bg-success/10 text-success" : "bg-amber-400/15 text-amber-500"}`}>{d.is_verified ? "مفعّل" : "قيد التفعيل"}</span>
+                  <span className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold ${d.is_online ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"}`}>
+                    <span className={`size-1.5 rounded-full ${d.is_online ? "bg-success" : "bg-muted-foreground"}`} />
+                    {d.is_online ? "متصل الآن" : "غير متصل"}
+                  </span>
+                </div>
               </div>
-              <p className="mt-3 whitespace-pre-wrap rounded-xl bg-muted p-3 text-sm leading-6">{o.items_list}</p>
-              {o.voice_note_url && <audio controls preload="none" src={o.voice_note_url} className="mt-3 w-full" />}
-              <dl className="mt-3 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1.5 text-sm">
-                <dt className="text-muted-foreground">الحساب</dt><dd className="truncate" dir="ltr">{emailById.get(o.user_id ?? "") ?? "—"}</dd>
-                <dt className="text-muted-foreground">الهاتف</dt><dd dir="ltr" className="text-right font-bold">{o.customer_phone}</dd>
-                <dt className="text-muted-foreground">العنوان</dt><dd className="break-words">{o.delivery_address}</dd>
-                <dt className="text-muted-foreground">سقف الميزانية</dt><dd>{o.budget_limit ? money(o.budget_limit) : "—"}</dd>
-                <dt className="text-muted-foreground">المشتريات</dt><dd>{money(o.purchase_price)}</dd>
-                <dt className="text-muted-foreground">التوصيل</dt><dd>{money(o.delivery_fee)}</dd>
-                <dt className="font-bold">المجموع</dt><dd className="font-black text-primary">{money(o.total_price)}</dd>
-              </dl>
+              <div className="mt-3 grid grid-cols-3 gap-2 text-xs text-muted-foreground">
+                <p>التسجيل<br /><span className="text-foreground">{fmt(d.created_at)}</span></p>
+                <p>التوصيلات المكتملة<br /><span className="font-black text-primary">{d.completed}</span></p>
+                <p>مجموع الأجور<br /><span className="font-black text-primary">{money(d.fees)}</span></p>
+              </div>
             </article>
           ))
         ) : (
