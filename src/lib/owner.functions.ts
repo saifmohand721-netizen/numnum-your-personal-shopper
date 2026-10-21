@@ -56,6 +56,39 @@ export const getOwnerOverview = createServerFn({ method: "POST" })
     return { users, orders: withAudio };
   });
 
+// Driver accounts: profile fields plus per-driver completed deliveries and
+// earned delivery fees. Financial sums count completed orders only.
+export const getDriversOverview = createServerFn({ method: "POST" })
+  .inputValidator((value) => input.parse(value))
+  .handler(async ({ data }) => {
+    await verifyOwner(data.password);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: drivers, error } = await supabaseAdmin
+      .from("profiles")
+      .select("id,full_name,phone,email,is_verified,is_online,created_at")
+      .eq("role", "driver")
+      .order("created_at", { ascending: false });
+    if (error) throw new Error(error.message);
+    const { data: orders, error: ordersError } = await supabaseAdmin
+      .from("orders")
+      .select("driver_id,status,delivery_fee")
+      .not("driver_id", "is", null);
+    if (ordersError) throw new Error(ordersError.message);
+    const stats = new Map<string, { completed: number; fees: number }>();
+    for (const o of orders ?? []) {
+      if (!o.driver_id || o.status !== "completed") continue;
+      const s = stats.get(o.driver_id) ?? { completed: 0, fees: 0 };
+      s.completed += 1;
+      s.fees += Number(o.delivery_fee ?? 0);
+      stats.set(o.driver_id, s);
+    }
+    return (drivers ?? []).map((d) => ({
+      ...d,
+      completed: stats.get(d.id)?.completed ?? 0,
+      fees: stats.get(d.id)?.fees ?? 0,
+    }));
+  });
+
 // Ban or unban an account. Banned users cannot sign in or use their session.
 export const setUserBanned = createServerFn({ method: "POST" })
   .inputValidator((value) => z.object({ password: z.string().min(1).max(128), userId: z.string().uuid(), banned: z.boolean() }).parse(value))
