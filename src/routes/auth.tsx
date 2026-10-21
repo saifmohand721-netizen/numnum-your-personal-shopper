@@ -10,7 +10,7 @@ import { lovable } from "@/integrations/lovable";
 
 export const Route = createFileRoute("/auth")({
   validateSearch: (search: Record<string, unknown>) => ({
-    mode: search.mode === "up" ? ("up" as const) : ("in" as const),
+    mode: search["mode"] === "up" ? ("up" as const) : ("in" as const),
   }),
   head: () => ({
     meta: [
