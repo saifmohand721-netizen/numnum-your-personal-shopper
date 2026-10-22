@@ -12,6 +12,7 @@ import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { Toaster } from "@/components/ui/sonner";
+import { InstallPrompt } from "@/components/InstallPrompt";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 
 function NotFoundComponent() {
@@ -130,6 +131,23 @@ function RootComponent() {
 
   useEffect(() => {
     void import("@/lib/register-pwa").then(({ registerNumNumPwa }) => registerNumNumPwa());
+    // iOS Safari ignores user-scalable=no; block pinch & double-tap zoom.
+    const stop = (e: Event) => e.preventDefault();
+    const pinch = (e: TouchEvent) => { if (e.touches.length > 1) e.preventDefault(); };
+    let last = 0;
+    const dbl = (e: TouchEvent) => {
+      const now = Date.now();
+      if (now - last < 300) e.preventDefault();
+      last = now;
+    };
+    document.addEventListener("gesturestart", stop);
+    document.addEventListener("touchmove", pinch, { passive: false });
+    document.addEventListener("touchend", dbl, { passive: false });
+    return () => {
+      document.removeEventListener("gesturestart", stop);
+      document.removeEventListener("touchmove", pinch);
+      document.removeEventListener("touchend", dbl);
+    };
   }, []);
 
   useEffect(() => {
@@ -150,6 +168,7 @@ function RootComponent() {
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <Outlet />
       <Toaster position="top-center" richColors />
+      <InstallPrompt />
     </QueryClientProvider>
   );
 }

@@ -21,22 +21,22 @@ export const Route = createFileRoute("/")({
 
 function Welcome() {
   return (
-    <main dir="rtl" className="min-h-screen bg-foreground text-background">
-      <div className="mx-auto flex min-h-screen w-full max-w-5xl flex-col px-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-[max(1.5rem,env(safe-area-inset-top))]">
-        <header className="flex items-center gap-3">
-          <img src={appIcon} alt="شعار دز" width={48} height={48} className="size-12 rounded-xl shadow-lg" />
+    <main dir="rtl" className="h-[100dvh] overflow-hidden bg-foreground text-background">
+      <div className="mx-auto flex h-full w-full max-w-5xl flex-col px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))]">
+        <header className="flex shrink-0 items-center gap-3">
+          <img src={appIcon} alt="شعار دز" width={48} height={48} className="size-11 rounded-xl shadow-lg" />
           <div>
             <p className="text-2xl font-black leading-none">دز</p>
             <p className="mt-1 text-xs text-background/55">نشتري ونوصل لك أي شيء</p>
           </div>
         </header>
 
-        <div className="mt-8 text-center">
-          <h1 className="text-3xl font-black leading-snug sm:text-4xl">أهلاً بك بدز 👋</h1>
-          <p className="mt-2 text-sm text-background/60">اختر كيف تحب تكمل</p>
+        <div className="mt-4 shrink-0 text-center">
+          <h1 className="text-2xl font-black leading-snug sm:text-4xl">أهلاً بك بدز 👋</h1>
+          <p className="mt-1 text-sm text-background/60">اختر كيف تحب تكمل</p>
         </div>
 
-        <div className="mt-7 grid flex-1 content-start gap-4 sm:grid-cols-2">
+        <div className="mt-4 grid min-h-0 flex-1 grid-rows-2 gap-3 sm:grid-cols-2 sm:grid-rows-1 sm:gap-4">
           <RoleCard
             to="/auth"
             search={{ mode: "up" }}
@@ -59,7 +59,7 @@ function Welcome() {
           />
         </div>
 
-        <p className="mt-6 text-center text-[11px] text-background/40">متاح الآن في المسيب — وقريباً بباقي مناطق شمال بابل</p>
+        <p className="mt-3 shrink-0 text-center text-[11px] text-background/40">متاح الآن في المسيب — وقريباً بباقي مناطق شمال بابل</p>
       </div>
     </main>
   );
@@ -82,7 +82,7 @@ function RoleCard({ to, search, img, alt, icon, title, desc, cta, primary }: {
       // RoleCard is generic over its target route; the cast keeps the
       // per-route search typing at the call site ("/auth" accepts mode).
       search={search as never}
-      className="group relative block min-h-72 overflow-hidden rounded-3xl border border-background/10 shadow-2xl transition duration-300 hover:-translate-y-1 hover:shadow-primary/20 active:scale-[0.98] sm:min-h-96"
+      className="group relative block h-full min-h-0 overflow-hidden rounded-3xl border border-background/10 shadow-2xl transition duration-300 hover:-translate-y-1 hover:shadow-primary/20 active:scale-[0.98]"
     >
       <img src={img} alt={alt} className="absolute inset-0 size-full object-cover transition duration-500 group-hover:scale-105" />
       <span aria-hidden className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-black/10" />
